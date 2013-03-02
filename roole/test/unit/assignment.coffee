@@ -2,24 +2,26 @@ assert = require '../assert'
 
 suite 'assignment'
 
-test 'variable is case-insensitive', ->
+test 'variables are case-sensitive', ->
 	assert.compileTo '''
-		$width = 960px
-		$Width = 480px
-		body
-			width: $width
+		$width = 960px;
+		$Width = 480px;
+		body {
+			width: $width;
+		}
 	''', '''
 		body {
-			width: 480px;
+			width: 960px;
 		}
 	'''
 
 test '?= after =', ->
 	assert.compileTo '''
-		$width = 960px
-		$width ?= 480px
-		body
-			width: $width
+		$width = 960px;
+		$width ?= 480px;
+		body {
+			width: $width;
+		}
 	''', '''
 		body {
 			width: 960px;
@@ -28,9 +30,10 @@ test '?= after =', ->
 
 test 'lone ?= ', ->
 	assert.compileTo '''
-		$width ?= 480px
-		body
-			width: $width
+		$width ?= 480px;
+		body {
+			width: $width;
+		}
 	''', '''
 		body {
 			width: 480px;

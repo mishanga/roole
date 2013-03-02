@@ -5,25 +5,21 @@
  */
 'use strict'
 
+var defaults = require('../defaults')
 var _ = require('../helper')
 var Visitor = require('../visitor')
 
 var Prefixer = module.exports = function() {}
 
-Prefixer.defaults = {
-	prefixes: ['webkit', 'moz', 'ms', 'o']
-}
-
 Prefixer.prototype = new Visitor()
-Prefixer.prototype.constructor = Prefixer
 
 Prefixer.prototype.prefix = function(ast, options) {
-	this.prefixes = options.prefixes || Prefixer.defaults.prefixes
+	this.prefixes = options.prefix || defaults.prefix
+	this.skipPrefixed = options.skipPrefixed
 	return this.visit(ast)
 }
 
 Prefixer.prototype.visitRoot =
-Prefixer.prototype.visitPropertyList =
 Prefixer.prototype.visitRuleset =
 Prefixer.prototype.visitMedia =
 Prefixer.prototype.visitKeyframeList =
@@ -33,4 +29,5 @@ Prefixer.prototype.visitRuleList = Prefixer.prototype.visitNode
 Prefixer.prototype.visitNode = _.noop
 
 require('./node/property.js')
+require('./node/propertyList.js')
 require('./node/keyframes.js')

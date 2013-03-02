@@ -5,6 +5,7 @@
  */
 'use strict'
 
+var defaults = require('../defaults')
 var _ = require('../helper')
 var Visitor = require('../visitor')
 var loader = require('./fs-loader')
@@ -13,10 +14,9 @@ var parser = require('../parser')
 var Importer = module.exports = function() {}
 
 Importer.prototype = new Visitor()
-Importer.prototype.constructor = Importer
 
 Importer.prototype.import = function(ast, options, callback) {
-	this.imports = options.imports || (options.imports = {})
+	this.imports = options.imports || (options.imports = defaults.imports)
 	this.imported = {}
 	this.ast = ast
 	this.callback = callback
@@ -63,10 +63,10 @@ Importer.prototype.visitImport = function(importNode) {
 		return
 
 	var filePath = urlNode.children[0]
-	if (/^\w+:\/\/|\.css$/.test(filePath))
+	if (/^\w+:\/\//.test(filePath))
 		return
 
-	if (!/\.roo$/.test(filePath))
+	if (!/\.[a-z]+$/i.test(filePath))
 		filePath += '.roo'
 
 	filePath = _.joinPaths(_.dirname(this.filePath), filePath)

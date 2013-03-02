@@ -1,8 +1,8 @@
 'use strict'
 
 var MediaFilter = require('../mediaFilter')
-var RulesetFilter = require('../rulesetFilter')
 var RulesetExtender = require('../rulesetExtender')
+var compiler = require('../../compiler')
 
 var Extender = require('../extender')
 
@@ -13,24 +13,19 @@ Extender.prototype.visitExtend = function(extendNode) {
 		insideVoid: !!this.parentVoid
 	}
 
-	var parentMediaQueryList = this.parentMediaQueryList
-	if (parentMediaQueryList) {
-		var mediaNodes = new MediaFilter().filter(nodes, parentMediaQueryList, options)
+	if (this.parentMediaQueries) {
+		var mediaNodes = new MediaFilter().filter(nodes, this.parentMediaQueries, options)
 		nodes = []
 		mediaNodes.forEach(function(mediaNode) {
 			nodes = nodes.concat(mediaNode.children)
 		})
 	}
 
-	var parentSelectorList = this.parentSelectorList
 	var selectorListNode = extendNode.children[0]
 	selectorListNode.children.forEach(function(selectorNode) {
-		var rulesetNodes = new RulesetFilter().filter(nodes, selectorNode, options)
-
-		rulesetNodes.forEach(function(rulesetNode) {
-			new RulesetExtender().extend(rulesetNode, parentSelectorList, options)
-		})
-	})
+		selectorNode = compiler.compile(selectorNode)
+		new RulesetExtender().extend(nodes, selectorNode, this.parentSelectors, options)
+	}, this)
 
 	return null
 }

@@ -74,6 +74,28 @@ Node.equal = function(node1, node2) {
 	return Node.equal(node1.children, node2.children)
 }
 
+Node.containSelector = function(needleSelector, haystackSelector) {
+	var index = -1
+	var needles = needleSelector.children
+	var haystack = haystackSelector.children
+	var firstNeedle = needles[0]
+	haystack.some(function(node, i) {
+		if (Node.equal(firstNeedle, node)) {
+			index = i
+			return true
+		}
+	})
+	if (!~index)
+		return index
+
+	for (var i = 1, length = needles.length; i < length; ++i) {
+		if (!Node.equal(needles[i], haystack[i + index]))
+			return -1
+	}
+
+	return index
+}
+
 Node.toNumber = function(node) {
 	switch (node.type) {
 	case 'number':
@@ -105,12 +127,13 @@ Node.toListNode = function(rangeNode) {
 	var fromNode = rangeNode.children[0]
 	var fromNumber = fromNode.children[0]
 
-	var toNode = rangeNode.children[1]
+	var operator = rangeNode.children[1]
+	var exclusive = operator.length === 3
+
+	var toNode = rangeNode.children[2]
 	var toNumber = toNode.children[0]
 
 	var stepNumber = fromNumber < toNumber ? 1 : -1
-
-	var exclusive = rangeNode.exclusive
 
 	var itemNodes = []
 	var i = 0

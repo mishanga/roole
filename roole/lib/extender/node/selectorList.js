@@ -5,26 +5,25 @@ var Node = require('../../node')
 var Extender = require('../extender')
 
 Extender.prototype.visitSelectorList = function(selectorListNode) {
-	selectorListNode.originalNode = Node.clone(selectorListNode)
+	var selectorListClone = Node.clone(selectorListNode, false)
+	selectorListClone.children = selectorListNode.children
+	selectorListNode.originalNode = selectorListClone
 
-	var parentSelectorList = this.parentSelectorList
-
-	if (parentSelectorList) {
-		var length = parentSelectorList.children.length
-		var children = []
-
-		parentSelectorList.children.forEach(function(parentSelector, i) {
+	var selectors = []
+	if (this.parentSelectors) {
+		this.parentSelectors.forEach(function(parentSelector) {
 			this.parentSelector = parentSelector
 
-			var selectorListClone = i === length - 1 ? selectorListNode : Node.clone(selectorListNode)
-			selectorListClone.children.forEach(function(selectorNode) {
-				children.push(this.visit(selectorNode))
+			selectorListNode.children.forEach(function(selectorNode) {
+				selectors.push(this.visit(selectorNode))
 			}, this)
 		}, this)
-
-		selectorListNode.children = children
 	} else {
-		this.parentSelector = null
-		this.visit(selectorListNode.children)
+		this.parentSelector = ''
+		selectorListNode.children.forEach(function(selectorNode) {
+			selectors.push(this.visit(selectorNode))
+		}, this)
 	}
+
+	selectorListNode.children = selectors
 }

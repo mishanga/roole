@@ -1,42 +1,29 @@
 /**
- * Selector Extender
+ * Ruleset Extender
  *
- * Extend all selectors exsiting before the passed extend node with
- * the passed selector list node
+ * Find ruleset node matching the passed selector and extend them with the
+ * passed parent selectors
  */
 'use strict'
 
 var _ = require('../helper')
-var Node = require('../node')
 var Visitor = require('../visitor')
-var Extender = require('./extender')
+var SelectorExtender = require('./selectorExtender')
 
 var RulesetExtender = module.exports = function() {}
 
 RulesetExtender.stop = {}
 
 RulesetExtender.prototype = new Visitor()
-RulesetExtender.prototype.constructor = RulesetExtender
 
-RulesetExtender.prototype.extend = function(rulesetNode, parentSelectorList, options) {
-	this.parentSelectorList = parentSelectorList
+RulesetExtender.prototype.extend = function(ast, selectorNode, parentSelectors, options) {
+	this.parentSelectors = parentSelectors
+	this.selectorNode = selectorNode
 	this.extendNode = options.extendNode
-	this.insideVoid = options.insideVoid
-
-	var selectorListNode = rulesetNode.children[0]
-	selectorListNode.children = selectorListNode.children.concat(parentSelectorList.children)
-
-	if (!this.insideVoid) {
-		if (!selectorListNode.extendedSelectors)
-			selectorListNode.extendedSelectors = parentSelectorList.children
-		else
-			selectorListNode.extendedSelectors = selectorListNode.extendedSelectors.concat(parentSelectorList.children)
-	}
-
-	var ruleListNode = rulesetNode.children[1]
+	this.options = options
 
 	try {
-		this.visit(ruleListNode)
+		this.visit(ast)
 	} catch (error) {
 		if (error !== RulesetExtender.stop)
 			throw error
@@ -44,7 +31,7 @@ RulesetExtender.prototype.extend = function(rulesetNode, parentSelectorList, opt
 }
 
 RulesetExtender.prototype.visitRoot =
-RulesetExtender.prototype.visitMedia =
+RulesetExtender.prototype.visitVoid =
 RulesetExtender.prototype.visitRuleList = RulesetExtender.prototype.visitNode
 
 RulesetExtender.prototype.visitNode = _.noop
@@ -55,32 +42,29 @@ RulesetExtender.prototype.visitExtend = function(extendNode) {
 }
 
 RulesetExtender.prototype.visitRuleset = function(rulesetNode) {
-	var selectorListNode = this.visit(rulesetNode.children[0])
+	var selectorListNode = rulesetNode.children[0]
 
-	var parentSelectorList = this.parentSelectorList
-	this.parentSelectorList = selectorListNode
+	var selectorMatched = selectorListNode.children.some(function(selectorNode) {
+		if (this.extendNode.all) {
+			if (~selectorNode.indexOf(this.selectorNode)) {
+				var parentSelectors = []
+				this.parentSelectors.forEach(function(parentSelector) {
+					parentSelector = selectorNode.split(this.selectorNode).join(parentSelector)
+					parentSelectors.push(parentSelector)
+				}, this)
+
+				new SelectorExtender().extend(rulesetNode, parentSelectors, this.options)
+				return true
+			}
+		} else if (this.selectorNode === selectorNode) {
+			new SelectorExtender().extend(rulesetNode, this.parentSelectors, this.options)
+			return true
+		}
+	}, this)
+
+	if (selectorMatched)
+		return
 
 	var ruleListNode = rulesetNode.children[1]
 	this.visit(ruleListNode)
-
-	this.parentSelectorList = parentSelectorList
-}
-
-RulesetExtender.prototype.visitSelectorList = function(selectorListNode) {
-	var selectorListClone = Node.clone(selectorListNode.originalNode)
-
-	var extender = new Extender()
-	extender.parentSelectorList = this.parentSelectorList
-	selectorListClone = extender.extend(selectorListClone, this.options)
-
-	selectorListNode.children = selectorListNode.children.concat(selectorListClone.children)
-
-	if (!this.insideVoid) {
-		if (!selectorListNode.extendedSelectors)
-			selectorListNode.extendedSelectors = selectorListClone.children
-		else
-			selectorListNode.extendedSelectors = selectorListNode.extendedSelectors.concat(selectorListClone.children)
-	}
-
-	return selectorListClone
 }

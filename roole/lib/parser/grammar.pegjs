@@ -1,8 +1,7 @@
 {
-	var indentSizeStack = []
 	var _ = require('../helper')
-
 	var Node = require('../node')
+
 	var N = function() {
 		var node = Node.apply(this, arguments)
 
@@ -17,12 +16,14 @@
 }
 
 root
-	= predent rules:rootRules? {
-		return N('root', rules || [])
+	= comment:(c:multiLineComment {return N('comment', [c])})? _ rules:(r:rootRules _ {return r})? {
+		if (!rules) rules = []
+		if (comment) rules.unshift(comment)
+		return N('root', rules)
 	}
 
 rootRules
-	= first:rootRule rest:(isodent r:rootRule {return r})* {
+	= first:rootRule rest:(_ r:rootRule {return r})* {
 		rest.unshift(first)
 		return rest
 	}
@@ -37,26 +38,16 @@ rootRule
 	/ if
 	/ for
 	/ mixinCall
-	/ comment
 	/ keyframes
-
-comment
-	= '/*' value:$(([^*] / '*' [^/])*) '*/' {
-		return N('comment', [value])
-	}
+	/ fontFace
+	/ charset
 
 ruleset
-	= selectorList:selectorList indent ruleList:ruleList outdent {
+	= selectorList:selectorList _ ruleList:ruleList {
 		return N('ruleset', [selectorList, ruleList])
 	}
 
 selectorList
-	= first:selector rest:(_ ',' _ s:selector {return s} / isodent s:selector {return s})* {
-		rest.unshift(first)
-		return N('selectorList', rest)
-	}
-
-singleLineSelectorList
 	= first:selector rest:(_ ',' _ s:selector {return s})* {
 		rest.unshift(first)
 		return N('selectorList', rest)
@@ -108,7 +99,7 @@ suffixSelector
 	= hashSelector
 	/ classSelector
 	/ attributeSelector
-	// / negaSelector
+	/ negationSelector
 	/ pseudoSelector
 
 selectorInterpolation
@@ -142,28 +133,57 @@ classSelector
 	}
 
 attributeSelector
-	= '[' _ name:identifier rest:(_ o:('^=' / '$=' / '*=' / '~=' / '|=' / '=') _ e:expression {return [o, e]})? _ ']' {
+	= '[' _ name:identifier rest:(_ o:('^=' / '$=' / '*=' / '~=' / '|=' / '=') _ l:list {return [o, l]})? _ ']' {
 		if (rest) rest.unshift(name)
 		else rest = [name]
-
 		return N('attributeSelector', rest)
 	}
 
+negationSelector
+	= ':not'i '(' _ argument:negationArgument _ ')' {
+		return N('negationSelector', [argument])
+	}
+
+negationArgument
+	= classSelector
+	/ typeSelector
+	/ attributeSelector
+	/ pseudoSelector
+	/ hashSelector
+	/ universalSelector
+
 pseudoSelector
-	= ':' doubled:':'? value:identifier {
+	= ':' doubled:':'? value:(pseudoFunction / identifier) {
 		return N('pseudoSelector', [value], {doubled: !!doubled})
 	}
 
-ruleList
-	= first:rule rest:(isodent r:rule {return r})* {
+pseudoFunction
+	= name:rawIdentifier '(' _ argument:pseudoArgument _ ')' {
+		return N('function', [name, argument])
+	}
+
+pseudoArgument
+	= first:pseudoElement rest:(_ a:pseudoElement {return a})* {
 		rest.unshift(first)
-		rest = _.flatten(rest)
-		return N('ruleList', rest)
+		return N('pseudoArgument', rest)
+	}
+
+pseudoElement
+	= [-+] / dimension / number / string / identifier
+
+ruleList
+	= '{' _ rules:rules? _ '}' {
+		return N('ruleList', rules || [])
+	}
+
+rules
+	= first:rule rest:(_ r:rule {return r})* {
+		rest.unshift(first)
+		return rest
 	}
 
 rule
 	= ruleset
-	/ properties
 	/ property
 	/ assignment
 	/ extend
@@ -175,15 +195,10 @@ rule
 	/ for
 	/ mixinCall
 	/ keyframes
-
-properties
-	= first:property rest:(_ ';' _ p:property {return p})+ {
-		rest.unshift(first)
-		return rest
-	}
+	/ fontFace
 
 property
-	= star:'*'? name:identifier _ ':' _ value:expression _ priority:'!important'? {
+	= star:'*'? name:identifier _ ':' _ value:list _ priority:'!important'? _ semicolon {
 		if (star) {
 			if (name.type === 'identifier')
 				name.children.unshift(star)
@@ -193,19 +208,12 @@ property
 		return N('property', [name, value, priority || null])
 	}
 
-expression
-	= list
+semicolon
+	= &('}')
+	/ ';' (_ ';')*
 
 list
 	= first:logicalOrExpression rest:(separator logicalOrExpression)+ {
-		rest = _.flatten(rest)
-		rest.unshift(first)
-		return N('list', rest)
-	}
-	/ logicalOrExpression
-
-nonCommaList
-	= first:logicalOrExpression rest:(nonCommaSeparator logicalOrExpression)+ {
 		rest = _.flatten(rest)
 		rest.unshift(first)
 		return N('list', rest)
@@ -218,18 +226,26 @@ separator
 	}
 	/ nonCommaSeparator
 
-nonCommaSeparator
-	= value:('/' / s {return ' '}) {
-		return N('separator', [value])
-	}
-
 commaSeparator
 	= value:',' {
 		return N('separator', [value])
 	}
 
+nonCommaSeparator
+	= value:('/' / s {return ' '}) {
+		return N('separator', [value])
+	}
+
+nonCommaList
+	= first:logicalOrExpression rest:(nonCommaSeparator logicalOrExpression)+ {
+		rest = _.flatten(rest)
+		rest.unshift(first)
+		return N('list', rest)
+	}
+	/ logicalOrExpression
+
 logicalOrExpression
-	= first:logicalAndExpression rest:(s 'or'i s e:logicalAndExpression {return e})* {
+	= first:logicalAndExpression rest:(_ 'or'i _ e:logicalAndExpression {return e})* {
 		var node = first
 		rest.forEach(function(operand) {
 			node = N('logicalExpression', [node, 'or', operand])
@@ -238,7 +254,7 @@ logicalOrExpression
 	}
 
 logicalAndExpression
-	= first:equalityExpression rest:(s 'and'i s e:equalityExpression {return e})* {
+	= first:equalityExpression rest:(_ 'and'i _ e:equalityExpression {return e})* {
 		var node = first
 		rest.forEach(function(operand) {
 			node = N('logicalExpression', [node, 'and', operand])
@@ -247,7 +263,7 @@ logicalAndExpression
 	}
 
 equalityExpression
-	= first:relationalExpression rest:((s o:('isnt'i / 'is'i) s {return o}) relationalExpression)* {
+	= first:relationalExpression rest:((_ o:('isnt'i / 'is'i) _ {return o}) relationalExpression)* {
 		var node = first
 		rest.forEach(function(array) {
 			var operator = array[0]
@@ -269,8 +285,8 @@ relationalExpression
 	}
 
 range
-	= from:additiveExpression _ '..' exclusive:'.'? _ to:additiveExpression {
-		return N('range', [from, to], {exclusive: !!exclusive})
+	= from:additiveExpression _ operator:$('..' '.'?) _ to:additiveExpression {
+		return N('range', [from, operator, to])
 	}
 	/ additiveExpression
 
@@ -304,8 +320,8 @@ unaryExpression
 	}
 
 primary
-	= '(' _ expression:expression _ ')' {
-		return expression
+	= '(' _ list:list _ ')' {
+		return list
 	}
 	/ variable
 	/ percentage
@@ -336,6 +352,11 @@ rawIdentifier
 interpolation
 	= '{' _ variable:variable _ '}' {
 		return variable
+	}
+
+variable
+	= '$' value:rawIdentifier {
+		return N('variable', [value])
 	}
 
 string
@@ -399,17 +420,12 @@ null
 	}
 
 assignment
-	= name:variable _ operator:$([-+*/?]? '=') _ value:(mixin / expression) {
+	= name:variable _ operator:$([-+*/?]? '=') _ value:(mixin / list) _ semicolon {
 		return N('assignment', [name, operator, value])
 	}
 
-variable
-	= '$' value:rawIdentifier {
-		return N('variable', [value])
-	}
-
 media
-	= '@media'i s mediaQueryList:mediaQueryList indent ruleList:ruleList outdent {
+	= '@media'i _ mediaQueryList:mediaQueryList _ ruleList:ruleList {
 		return N('media', [mediaQueryList, ruleList])
 	}
 
@@ -420,7 +436,7 @@ mediaQueryList
 	}
 
 mediaQuery
-	= first:(mediaInterpolation / mediaType / mediaFeature) rest:(s 'and'i s m:(mediaInterpolation / mediaFeature) {return m})* {
+	= first:(mediaInterpolation / mediaType / mediaFeature) rest:(_ 'and'i _ m:(mediaInterpolation / mediaFeature) {return m})* {
 		rest.unshift(first)
 		return N('mediaQuery', rest)
 	}
@@ -431,32 +447,32 @@ mediaInterpolation
 	}
 
 mediaType
-	= modifier:(m:('only'i / 'not'i) s {return m})? value:identifier {
+	= modifier:(m:('only'i / 'not'i) _ {return m})? value:identifier {
 		return N('mediaType', [modifier || null, value])
 	}
 
 mediaFeature
-	= '(' _ name:identifier _ value:(':' _ v:expression _ {return v})? ')' {
+	= '(' _ name:identifier _ value:(':' _ v:list _ {return v})? ')' {
 		return N('mediaFeature', [name, value || null])
 	}
 
 extend
-	= '@extend'i s selectorList:singleLineSelectorList {
-		return N('extend', [selectorList])
+	= '@extend'i all:'-all'i? _ selectorList:selectorList _ semicolon {
+		return N('extend', [selectorList], {all: !!all})
 	}
 
 void
-	= '@void'i indent ruleList:ruleList outdent {
+	= '@void'i _ ruleList:ruleList {
 		return N('void', [ruleList])
 	}
 
 block
-	= '@block'i indent ruleList:ruleList outdent {
+	= '@block'i _ ruleList:ruleList {
 		return N('block', [ruleList])
 	}
 
 import
-	= '@import'i s value:(string / url / variable) mediaQueryList:(_ m:mediaQueryList {return m})? {
+	= '@import'i _ value:(string / url / variable) _ mediaQueryList:(m:mediaQueryList _ {return m})? semicolon {
 		return N('import', [value, mediaQueryList || null])
 	}
 
@@ -471,27 +487,27 @@ urlAddr
 	}
 
 if
-	= '@if'i s condition:expression indent consequence:ruleList outdent alternative:(isodent e:(elseIf / else) {return e})? {
+	= '@if'i _ condition:list _ consequence:ruleList alternative:(_ e:(elseIf / else) {return e})? {
 		return N('if', [condition, consequence, alternative || null])
 	}
 
 elseIf
-	= '@else if'i s condition:expression indent consequence:ruleList outdent alternative:(isodent e:(elseIf / else) {return e})? {
+	= '@else'i _ 'if'i _ condition:list _ consequence:ruleList alternative:(_ e:(elseIf / else) {return e})? {
 		return N('if', [condition, consequence, alternative || null])
 	}
 
 else
-	= '@else'i indent ruleList:ruleList outdent {
+	= '@else'i _ ruleList:ruleList {
 		return ruleList
 	}
 
 for
-	= '@for'i s value:variable index:(_ ',' _ i:variable {return i})? step:(s 'by'i s a:additiveExpression {return a})? s 'in'i s list:expression indent ruleList:ruleList outdent {
+	= '@for'i _ value:variable _ index:(',' _ i:variable _ {return i})? step:('by'i _ a:additiveExpression _ {return a})? 'in'i _ list:list _ ruleList:ruleList {
 		return N('for', [value, index || null, step || null, list, ruleList])
 	}
 
 mixin
-	= '@mixin' parameterList:(s p:parameterList {return p})? indent ruleList:ruleList outdent {
+	= '@mixin' parameterList:(_ p:parameterList {return p})? _ ruleList:ruleList {
 		return N('mixin', [parameterList || null, ruleList])
 	}
 
@@ -507,28 +523,28 @@ parameter
 	}
 
 mixinCall
-	= name:variable argumentList:('(' _ a:argumentList? _ ')' {return a}) {
+	= name:variable argumentList:('(' _ a:argumentList? _ ')' {return a}) _ semicolon {
 		return N('mixinCall', [name, argumentList || null])
 	}
 
 keyframes
-	= '@' prefix:('-' p:$([a-z_]i [a-z0-9_]i*) '-' {return p})? 'keyframes'i s name:identifier indent keyframeList:keyframeList outdent {
+	= '@' prefix:('-' p:$([a-z_]i [a-z0-9_]i*) '-' {return p})? 'keyframes'i _ name:identifier _ keyframeList:keyframeList {
 		return N('keyframes', [prefix || null, name, keyframeList])
 	}
 
 keyframeList
-	= first:keyframe rest:(isodent k:keyframe {return k})* {
+	= '{' _ first:keyframe rest:(_ k:keyframe {return k})* _ '}' {
 		rest.unshift(first)
 		return N('keyframeList', rest)
 	}
 
 keyframe
-	= keyframeSelectorList:keyframeSelectorList indent propertyList:propertyList outdent {
+	= keyframeSelectorList:keyframeSelectorList _ propertyList:propertyList {
 		return N('keyframe', [keyframeSelectorList, propertyList])
 	}
 
 keyframeSelectorList
-	= first:keyframeSelector rest:((_ ',' _  / isodent) k:keyframeSelector {return k})* {
+	= first:keyframeSelector rest:((_ ',' _) k:keyframeSelector {return k})* {
 		rest.unshift(first)
 		return N('keyframeSelectorList', rest)
 	}
@@ -539,69 +555,45 @@ keyframeSelector
 	}
 
 propertyList
-	= first:(properties / property) rest:(isodent p:(properties / property) {return p})* {
+	= '{' _ properties:properties _ '}' {
+		return N('propertyList', properties)
+	}
+
+properties
+	= first:property rest:(_ p:property {return p})* {
 		rest.unshift(first)
-		rest = _.flatten(rest)
-		return N('propertyList', rest)
+		return rest
 	}
 
-predent
-	= indentedSpaces:_ lines:(nl s:_ {return s})* {
-		if (lines.length)
-			indentedSpaces = lines[lines.length - 1]
-
-		indentSizeStack.push(indentedSpaces.length)
+fontFace
+	= '@font-face'i _ propertyList:propertyList {
+		return N('fontFace', [propertyList])
 	}
 
-indent
-	= _ lines:(nl s:_ {return s})+ {
-		var lastIndentSize = indentSizeStack[indentSizeStack.length - 1]
-		var indentSize = lines[lines.length - 1].length
-
-		if (indentSize <= lastIndentSize) return null
-		indentSizeStack.push(indentSize)
+charset
+	= '@charset'i _ value:string _ semicolon {
+		return N('charset', [value])
 	}
-
-isodent
-	= _ lines:(nl s:_ {return s})+ {
-		var lastIndentSize = indentSizeStack[indentSizeStack.length - 1]
-		var indentSize = lines[lines.length - 1].length
-
-		if (indentSize > lastIndentSize)
-			return null
-
-		if (indentSizeStack.length > 1) {
-			var penultimateIndentSize = indentSizeStack[indentSizeStack.length - 2]
-			if (indentSize <= penultimateIndentSize)
-				return null
-		}
-	}
-
-outdent
-	= _ lines:(nl _)* eof
-	/ &(_ lines:(nl s:_ {return s})+ {
-		var penultimateIndentSize = indentSizeStack[indentSizeStack.length - 2]
-		var indentSize = lines[lines.length - 1].length
-
-		if (indentSize > penultimateIndentSize)
-			return null
-
-		indentSizeStack.pop()
-	})
 
 _
-	= s:s? {
-		return s
-	}
+	= s?
 
 s
-	= [ \t]* '//' [^\r\n\f]*
-	/ s:$([ \t]+) {
-		return s
+	= (ws / singleLineComment / multiLineComment)+
+
+ws
+	= [ \t\r\n\f]+
+
+singleLineComment
+	= '//' [^\r\n\f]*
+
+multiLineComment
+	= '/*' value:$(([^*] / '*' [^/])*) '*/' {
+		return value
 	}
 
 nl
 	= '\r\n' / [\n\r\f]
 
-eof
-	= !.
+// eof
+// 	= !.

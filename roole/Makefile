@@ -1,5 +1,4 @@
 TEST_FILES = \
-	test/unit/indent.coffee \
 	test/unit/comment.coffee \
 	test/unit/selector.coffee \
 	test/unit/property.coffee \
@@ -28,17 +27,21 @@ TEST_FILES = \
 	test/unit/media.coffee \
 	test/unit/import.coffee \
 	test/unit/extend.coffee \
+	test/unit/extendAll.coffee \
 	test/unit/void.coffee \
 	test/unit/if.coffee \
 	test/unit/for.coffee \
 	test/unit/mixin.coffee \
 	test/unit/scope.coffee \
 	test/unit/prefix.coffee \
-	test/unit/keyframes.coffee
+	test/unit/keyframes.coffee \
+	test/unit/fontFace.coffee \
+	test/unit/charset.coffee
 
 method-files = $(patsubst %,lib/$(1)/%.js,$(shell grep -oE "\./node/\w+" lib/$(1)/$(1).js))
 
 LIB_FILES = \
+	lib/defaults.js \
 	lib/helper.js \
 	lib/err.js \
 	lib/node.js \
@@ -55,7 +58,7 @@ LIB_FILES = \
 	lib/extender/extender.js \
 	$(call method-files,extender) \
 	lib/extender/mediaFilter.js \
-	lib/extender/rulesetFilter.js \
+	lib/extender/selectorExtender.js \
 	lib/extender/rulesetExtender.js \
 	lib/extender/index.js \
 	lib/normalizer/normalizer.js \

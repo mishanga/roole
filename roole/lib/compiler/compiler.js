@@ -5,23 +5,18 @@
  */
 'use strict'
 
+var defaults = require('../defaults')
 var _ = require('../helper')
 var Visitor = require('../visitor')
 
 var Compiler = module.exports = function() {}
 
-Compiler.defaults = {
-	indent: '\t',
-	precision: 3
-}
-
 Compiler.prototype = new Visitor()
-Compiler.prototype.constructor = Compiler
 
 Compiler.prototype.compile = function(ast, options) {
 	if (!options) options = {}
-	this.indentUnit = options.indent || Compiler.defaults.indent
-	this.precision = options.precision || Compiler.defaults.precision
+	this.indentUnit = options.indent || defaults.indent
+	this.precision = options.precision || defaults.precision
 	this.indentLevel = 0
 
 	return this.visit(ast)
@@ -49,6 +44,7 @@ require('./node/universalSelector')
 require('./node/classSelector')
 require('./node/hashSelector')
 require('./node/attributeSelector')
+require('./node/negationSelector')
 require('./node/pseudoSelector')
 require('./node/propertyList')
 require('./node/property')
@@ -75,3 +71,5 @@ require('./node/keyframes')
 require('./node/keyframeList')
 require('./node/keyframe')
 require('./node/keyframeSelectorList')
+require('./node/fontFace')
+require('./node/charset')
