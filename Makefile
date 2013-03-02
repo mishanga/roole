@@ -33,7 +33,7 @@ dist/roole.min.js: roole/dist/roole.min.js | dist
 
 LATEST_TAG = $(shell git describe --abbrev=0 master)
 roole:
-	git merge -s subtree $(LATEST_TAG) -m 'subtree merge latest tag into roole folder'
+	git merge -Xsubtree=roole $(LATEST_TAG) -m 'subtree merge latest tag into roole folder'
 
 style/style.css: roole/bin/roole $(DOC_CSS_FILES) $(DOC_ROO_FILES)
 	cat $(DOC_CSS_FILES) >$@
