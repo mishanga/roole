@@ -106,7 +106,7 @@ function parse(elements, window) {
 				return
 			}
 
-			var result = /^\/\/\s*([\w-]+\.roo)\s*([\s\S]+)/.exec(content)
+			var result = /^\/\/\s*([\w-]+\.(?:roo|css))\s*([\s\S]+)/.exec(content)
 			if (result) {
 				imports.push({
 					name: result[1],
@@ -120,7 +120,11 @@ function parse(elements, window) {
 			imports.forEach(function(file) {
 				importedFiles[file.name] = file.content
 			})
-			roole.compile(content, {imports: importedFiles, indent: '  '}, function(error, css) {
+			roole.compile(content, {
+				imports: importedFiles,
+				indent: '  ',
+				prettyError: true
+			}, function(error, css) {
 				if (error)
 					throw error
 

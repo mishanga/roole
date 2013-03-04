@@ -39,8 +39,8 @@ style/style.css: roole/bin/roole $(DOC_CSS_FILES) $(DOC_ROO_FILES)
 	cat $(DOC_CSS_FILES) >$@
 	roole/bin/roole -p $(DOC_ROO_FILES) >>$@
 
-script/script.js: $(DOC_JS_FILES)
-	awk 'FNR==1{print ""}1' $(DOC_JS_FILES) >$@
+script/script.js: $(DOC_JS_FILES) roole/node_modules/.bin/uglifyjs
+	roole/node_modules/.bin/uglifyjs $(DOC_JS_FILES) -cmo $@
 
 roole/dist/roole.js: .FORCE
 	cd roole && $(MAKE) roole

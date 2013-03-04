@@ -1,5 +1,5 @@
 /*
- * Roole - A language that compiles to CSS v0.2.1
+ * Roole - A language that compiles to CSS v0.3.0
  * http://roole.org
  *
  * Copyright 2012 Glen Huang
@@ -8,12 +8,23 @@
 var roole = (function() {
 
 /**
+ * Defaults
+ *
+ * A collection of default options.
+ */
+var defaults = {
+	filePath: '',
+	imports: {},
+	prefix: ['webkit', 'moz', 'ms', 'o'],
+	indent: '\t',
+	precision: 3
+}
+
+/**
  * Helper
  *
  * A collection of general utility functions used by other modules.
  */
-'use strict'
-
 var _ = {}
 
 _.noop = function() {}
@@ -86,14 +97,10 @@ _.normalizePath = function (path) {
 var Err = function(message, node, filePath) {
 	var error = new Error(message)
 
-	try {
-		error.line = node.loc.line
-		error.column = node.loc.column
-		error.offset = node.loc.offset
-		error.filePath = filePath
-	} catch (error) {
-		console.error(node)
-	}
+	error.line = node.loc.line
+	error.column = node.loc.column
+	error.offset = node.loc.offset
+	error.filePath = filePath
 
 	return error
 }
@@ -172,6 +179,28 @@ Node.equal = function(node1, node2) {
 	return Node.equal(node1.children, node2.children)
 }
 
+Node.containSelector = function(needleSelector, haystackSelector) {
+	var index = -1
+	var needles = needleSelector.children
+	var haystack = haystackSelector.children
+	var firstNeedle = needles[0]
+	haystack.some(function(node, i) {
+		if (Node.equal(firstNeedle, node)) {
+			index = i
+			return true
+		}
+	})
+	if (!~index)
+		return index
+
+	for (var i = 1, length = needles.length; i < length; ++i) {
+		if (!Node.equal(needles[i], haystack[i + index]))
+			return -1
+	}
+
+	return index
+}
+
 Node.toNumber = function(node) {
 	switch (node.type) {
 	case 'number':
@@ -203,12 +232,13 @@ Node.toListNode = function(rangeNode) {
 	var fromNode = rangeNode.children[0]
 	var fromNumber = fromNode.children[0]
 
-	var toNode = rangeNode.children[1]
+	var operator = rangeNode.children[1]
+	var exclusive = operator.length === 3
+
+	var toNode = rangeNode.children[2]
 	var toNumber = toNode.children[0]
 
 	var stepNumber = fromNumber < toNumber ? 1 : -1
-
-	var exclusive = rangeNode.exclusive
 
 	var itemNodes = []
 	var i = 0
@@ -400,16 +430,52 @@ var generatedParser = (function(){
       }
       
       function parse_root() {
-        var r0, r1, r2, r3, r4;
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
         
         r1 = pos;
         r2 = pos;
-        r3 = parse_predent();
+        r4 = pos;
+        r3 = parse_multiLineComment();
         if (r3 !== null) {
-          r4 = parse_rootRules();
-          r4 = r4 !== null ? r4 : "";
+          reportedPos = r4;
+          r3 = (function(c) {return N('comment', [c])})(r3);
+        }
+        if (r3 === null) {
+          pos = r4;
+        }
+        r3 = r3 !== null ? r3 : "";
+        if (r3 !== null) {
+          r4 = parse__();
           if (r4 !== null) {
-            r0 = [r3, r4];
+            r6 = pos;
+            r7 = pos;
+            r8 = parse_rootRules();
+            if (r8 !== null) {
+              r9 = parse__();
+              if (r9 !== null) {
+                r5 = [r8, r9];
+              } else {
+                r5 = null;
+                pos = r7;
+              }
+            } else {
+              r5 = null;
+              pos = r7;
+            }
+            if (r5 !== null) {
+              reportedPos = r6;
+              r5 = (function(r) {return r})(r8);
+            }
+            if (r5 === null) {
+              pos = r6;
+            }
+            r5 = r5 !== null ? r5 : "";
+            if (r5 !== null) {
+              r0 = [r3, r4, r5];
+            } else {
+              r0 = null;
+              pos = r2;
+            }
           } else {
             r0 = null;
             pos = r2;
@@ -420,9 +486,11 @@ var generatedParser = (function(){
         }
         if (r0 !== null) {
           reportedPos = r1;
-          r0 = (function(rules) {
-        		return N('root', rules || [])
-        	})(r4);
+          r0 = (function(comment, rules) {
+        		if (!rules) rules = []
+        		if (comment) rules.unshift(comment)
+        		return N('root', rules)
+        	})(r3, r5);
         }
         if (r0 === null) {
           pos = r1;
@@ -440,7 +508,7 @@ var generatedParser = (function(){
           r4 = [];
           r6 = pos;
           r7 = pos;
-          r8 = parse_isodent();
+          r8 = parse__();
           if (r8 !== null) {
             r9 = parse_rootRule();
             if (r9 !== null) {
@@ -464,7 +532,7 @@ var generatedParser = (function(){
             r4.push(r5);
             r6 = pos;
             r7 = pos;
-            r8 = parse_isodent();
+            r8 = parse__();
             if (r8 !== null) {
               r9 = parse_rootRule();
               if (r9 !== null) {
@@ -529,9 +597,12 @@ var generatedParser = (function(){
                       if (r0 === null) {
                         r0 = parse_mixinCall();
                         if (r0 === null) {
-                          r0 = parse_comment();
+                          r0 = parse_keyframes();
                           if (r0 === null) {
-                            r0 = parse_keyframes();
+                            r0 = parse_fontFace();
+                            if (r0 === null) {
+                              r0 = parse_charset();
+                            }
                           }
                         }
                       }
@@ -545,165 +616,18 @@ var generatedParser = (function(){
         return r0;
       }
       
-      function parse_comment() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
-        
-        r1 = pos;
-        r2 = pos;
-        if (input.substr(pos, 2) === "/*") {
-          r3 = "/*";
-          pos += 2;
-        } else {
-          r3 = null;
-          if (reportFailures === 0) {
-            matchFailed("\"/*\"");
-          }
-        }
-        if (r3 !== null) {
-          r5 = pos;
-          r4 = [];
-          if (/^[^*]/.test(input.charAt(pos))) {
-            r6 = input.charAt(pos);
-            pos++;
-          } else {
-            r6 = null;
-            if (reportFailures === 0) {
-              matchFailed("[^*]");
-            }
-          }
-          if (r6 === null) {
-            r7 = pos;
-            if (input.charCodeAt(pos) === 42) {
-              r8 = "*";
-              pos++;
-            } else {
-              r8 = null;
-              if (reportFailures === 0) {
-                matchFailed("\"*\"");
-              }
-            }
-            if (r8 !== null) {
-              if (/^[^\/]/.test(input.charAt(pos))) {
-                r9 = input.charAt(pos);
-                pos++;
-              } else {
-                r9 = null;
-                if (reportFailures === 0) {
-                  matchFailed("[^\\/]");
-                }
-              }
-              if (r9 !== null) {
-                r6 = [r8, r9];
-              } else {
-                r6 = null;
-                pos = r7;
-              }
-            } else {
-              r6 = null;
-              pos = r7;
-            }
-          }
-          while (r6 !== null) {
-            r4.push(r6);
-            if (/^[^*]/.test(input.charAt(pos))) {
-              r6 = input.charAt(pos);
-              pos++;
-            } else {
-              r6 = null;
-              if (reportFailures === 0) {
-                matchFailed("[^*]");
-              }
-            }
-            if (r6 === null) {
-              r7 = pos;
-              if (input.charCodeAt(pos) === 42) {
-                r8 = "*";
-                pos++;
-              } else {
-                r8 = null;
-                if (reportFailures === 0) {
-                  matchFailed("\"*\"");
-                }
-              }
-              if (r8 !== null) {
-                if (/^[^\/]/.test(input.charAt(pos))) {
-                  r9 = input.charAt(pos);
-                  pos++;
-                } else {
-                  r9 = null;
-                  if (reportFailures === 0) {
-                    matchFailed("[^\\/]");
-                  }
-                }
-                if (r9 !== null) {
-                  r6 = [r8, r9];
-                } else {
-                  r6 = null;
-                  pos = r7;
-                }
-              } else {
-                r6 = null;
-                pos = r7;
-              }
-            }
-          }
-          if (r4 !== null) {
-            r4 = input.substring(pos, r5);
-          }
-          if (r4 !== null) {
-            if (input.substr(pos, 2) === "*/") {
-              r5 = "*/";
-              pos += 2;
-            } else {
-              r5 = null;
-              if (reportFailures === 0) {
-                matchFailed("\"*/\"");
-              }
-            }
-            if (r5 !== null) {
-              r0 = [r3, r4, r5];
-            } else {
-              r0 = null;
-              pos = r2;
-            }
-          } else {
-            r0 = null;
-            pos = r2;
-          }
-        } else {
-          r0 = null;
-          pos = r2;
-        }
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(value) {
-        		return N('comment', [value])
-        	})(r4);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
-        return r0;
-      }
-      
       function parse_ruleset() {
-        var r0, r1, r2, r3, r4, r5, r6;
+        var r0, r1, r2, r3, r4, r5;
         
         r1 = pos;
         r2 = pos;
         r3 = parse_selectorList();
         if (r3 !== null) {
-          r4 = parse_indent();
+          r4 = parse__();
           if (r4 !== null) {
             r5 = parse_ruleList();
             if (r5 !== null) {
-              r6 = parse_outdent();
-              if (r6 !== null) {
-                r0 = [r3, r4, r5, r6];
-              } else {
-                r0 = null;
-                pos = r2;
-              }
+              r0 = [r3, r4, r5];
             } else {
               r0 = null;
               pos = r2;
@@ -729,172 +653,6 @@ var generatedParser = (function(){
       }
       
       function parse_selectorList() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;
-        
-        r1 = pos;
-        r2 = pos;
-        r3 = parse_selector();
-        if (r3 !== null) {
-          r4 = [];
-          r6 = pos;
-          r7 = pos;
-          r8 = parse__();
-          if (r8 !== null) {
-            if (input.charCodeAt(pos) === 44) {
-              r9 = ",";
-              pos++;
-            } else {
-              r9 = null;
-              if (reportFailures === 0) {
-                matchFailed("\",\"");
-              }
-            }
-            if (r9 !== null) {
-              r10 = parse__();
-              if (r10 !== null) {
-                r11 = parse_selector();
-                if (r11 !== null) {
-                  r5 = [r8, r9, r10, r11];
-                } else {
-                  r5 = null;
-                  pos = r7;
-                }
-              } else {
-                r5 = null;
-                pos = r7;
-              }
-            } else {
-              r5 = null;
-              pos = r7;
-            }
-          } else {
-            r5 = null;
-            pos = r7;
-          }
-          if (r5 !== null) {
-            reportedPos = r6;
-            r5 = (function(s) {return s})(r11);
-          }
-          if (r5 === null) {
-            pos = r6;
-          }
-          if (r5 === null) {
-            r6 = pos;
-            r7 = pos;
-            r8 = parse_isodent();
-            if (r8 !== null) {
-              r9 = parse_selector();
-              if (r9 !== null) {
-                r5 = [r8, r9];
-              } else {
-                r5 = null;
-                pos = r7;
-              }
-            } else {
-              r5 = null;
-              pos = r7;
-            }
-            if (r5 !== null) {
-              reportedPos = r6;
-              r5 = (function(s) {return s})(r9);
-            }
-            if (r5 === null) {
-              pos = r6;
-            }
-          }
-          while (r5 !== null) {
-            r4.push(r5);
-            r6 = pos;
-            r7 = pos;
-            r8 = parse__();
-            if (r8 !== null) {
-              if (input.charCodeAt(pos) === 44) {
-                r9 = ",";
-                pos++;
-              } else {
-                r9 = null;
-                if (reportFailures === 0) {
-                  matchFailed("\",\"");
-                }
-              }
-              if (r9 !== null) {
-                r10 = parse__();
-                if (r10 !== null) {
-                  r11 = parse_selector();
-                  if (r11 !== null) {
-                    r5 = [r8, r9, r10, r11];
-                  } else {
-                    r5 = null;
-                    pos = r7;
-                  }
-                } else {
-                  r5 = null;
-                  pos = r7;
-                }
-              } else {
-                r5 = null;
-                pos = r7;
-              }
-            } else {
-              r5 = null;
-              pos = r7;
-            }
-            if (r5 !== null) {
-              reportedPos = r6;
-              r5 = (function(s) {return s})(r11);
-            }
-            if (r5 === null) {
-              pos = r6;
-            }
-            if (r5 === null) {
-              r6 = pos;
-              r7 = pos;
-              r8 = parse_isodent();
-              if (r8 !== null) {
-                r9 = parse_selector();
-                if (r9 !== null) {
-                  r5 = [r8, r9];
-                } else {
-                  r5 = null;
-                  pos = r7;
-                }
-              } else {
-                r5 = null;
-                pos = r7;
-              }
-              if (r5 !== null) {
-                reportedPos = r6;
-                r5 = (function(s) {return s})(r9);
-              }
-              if (r5 === null) {
-                pos = r6;
-              }
-            }
-          }
-          if (r4 !== null) {
-            r0 = [r3, r4];
-          } else {
-            r0 = null;
-            pos = r2;
-          }
-        } else {
-          r0 = null;
-          pos = r2;
-        }
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(first, rest) {
-        		rest.unshift(first)
-        		return N('selectorList', rest)
-        	})(r3, r4);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
-        return r0;
-      }
-      
-      function parse_singleLineSelectorList() {
         var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;
         
         r1 = pos;
@@ -1290,7 +1048,10 @@ var generatedParser = (function(){
           if (r0 === null) {
             r0 = parse_attributeSelector();
             if (r0 === null) {
-              r0 = parse_pseudoSelector();
+              r0 = parse_negationSelector();
+              if (r0 === null) {
+                r0 = parse_pseudoSelector();
+              }
             }
           }
         }
@@ -1568,7 +1329,7 @@ var generatedParser = (function(){
               }
               if (r6 !== null) {
                 reportedPos = r7;
-                r6 = (function(o, e) {return [o, e]})(r10, r12);
+                r6 = (function(o, l) {return [o, l]})(r10, r12);
               }
               if (r6 === null) {
                 pos = r7;
@@ -1617,12 +1378,111 @@ var generatedParser = (function(){
           r0 = (function(name, rest) {
         		if (rest) rest.unshift(name)
         		else rest = [name]
-        
         		return N('attributeSelector', rest)
         	})(r5, r6);
         }
         if (r0 === null) {
           pos = r1;
+        }
+        return r0;
+      }
+      
+      function parse_negationSelector() {
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8;
+        
+        r1 = pos;
+        r2 = pos;
+        if (input.substr(pos, 4).toLowerCase() === ":not") {
+          r3 = input.substr(pos, 4);
+          pos += 4;
+        } else {
+          r3 = null;
+          if (reportFailures === 0) {
+            matchFailed("\":not\"");
+          }
+        }
+        if (r3 !== null) {
+          if (input.charCodeAt(pos) === 40) {
+            r4 = "(";
+            pos++;
+          } else {
+            r4 = null;
+            if (reportFailures === 0) {
+              matchFailed("\"(\"");
+            }
+          }
+          if (r4 !== null) {
+            r5 = parse__();
+            if (r5 !== null) {
+              r6 = parse_negationArgument();
+              if (r6 !== null) {
+                r7 = parse__();
+                if (r7 !== null) {
+                  if (input.charCodeAt(pos) === 41) {
+                    r8 = ")";
+                    pos++;
+                  } else {
+                    r8 = null;
+                    if (reportFailures === 0) {
+                      matchFailed("\")\"");
+                    }
+                  }
+                  if (r8 !== null) {
+                    r0 = [r3, r4, r5, r6, r7, r8];
+                  } else {
+                    r0 = null;
+                    pos = r2;
+                  }
+                } else {
+                  r0 = null;
+                  pos = r2;
+                }
+              } else {
+                r0 = null;
+                pos = r2;
+              }
+            } else {
+              r0 = null;
+              pos = r2;
+            }
+          } else {
+            r0 = null;
+            pos = r2;
+          }
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(argument) {
+        		return N('negationSelector', [argument])
+        	})(r6);
+        }
+        if (r0 === null) {
+          pos = r1;
+        }
+        return r0;
+      }
+      
+      function parse_negationArgument() {
+        var r0;
+        
+        r0 = parse_classSelector();
+        if (r0 === null) {
+          r0 = parse_typeSelector();
+          if (r0 === null) {
+            r0 = parse_attributeSelector();
+            if (r0 === null) {
+              r0 = parse_pseudoSelector();
+              if (r0 === null) {
+                r0 = parse_hashSelector();
+                if (r0 === null) {
+                  r0 = parse_universalSelector();
+                }
+              }
+            }
+          }
         }
         return r0;
       }
@@ -1653,7 +1513,10 @@ var generatedParser = (function(){
           }
           r4 = r4 !== null ? r4 : "";
           if (r4 !== null) {
-            r5 = parse_identifier();
+            r5 = parse_pseudoFunction();
+            if (r5 === null) {
+              r5 = parse_identifier();
+            }
             if (r5 !== null) {
               r0 = [r3, r4, r5];
             } else {
@@ -1680,7 +1543,247 @@ var generatedParser = (function(){
         return r0;
       }
       
+      function parse_pseudoFunction() {
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8;
+        
+        r1 = pos;
+        r2 = pos;
+        r3 = parse_rawIdentifier();
+        if (r3 !== null) {
+          if (input.charCodeAt(pos) === 40) {
+            r4 = "(";
+            pos++;
+          } else {
+            r4 = null;
+            if (reportFailures === 0) {
+              matchFailed("\"(\"");
+            }
+          }
+          if (r4 !== null) {
+            r5 = parse__();
+            if (r5 !== null) {
+              r6 = parse_pseudoArgument();
+              if (r6 !== null) {
+                r7 = parse__();
+                if (r7 !== null) {
+                  if (input.charCodeAt(pos) === 41) {
+                    r8 = ")";
+                    pos++;
+                  } else {
+                    r8 = null;
+                    if (reportFailures === 0) {
+                      matchFailed("\")\"");
+                    }
+                  }
+                  if (r8 !== null) {
+                    r0 = [r3, r4, r5, r6, r7, r8];
+                  } else {
+                    r0 = null;
+                    pos = r2;
+                  }
+                } else {
+                  r0 = null;
+                  pos = r2;
+                }
+              } else {
+                r0 = null;
+                pos = r2;
+              }
+            } else {
+              r0 = null;
+              pos = r2;
+            }
+          } else {
+            r0 = null;
+            pos = r2;
+          }
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(name, argument) {
+        		return N('function', [name, argument])
+        	})(r3, r6);
+        }
+        if (r0 === null) {
+          pos = r1;
+        }
+        return r0;
+      }
+      
+      function parse_pseudoArgument() {
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
+        
+        r1 = pos;
+        r2 = pos;
+        r3 = parse_pseudoElement();
+        if (r3 !== null) {
+          r4 = [];
+          r6 = pos;
+          r7 = pos;
+          r8 = parse__();
+          if (r8 !== null) {
+            r9 = parse_pseudoElement();
+            if (r9 !== null) {
+              r5 = [r8, r9];
+            } else {
+              r5 = null;
+              pos = r7;
+            }
+          } else {
+            r5 = null;
+            pos = r7;
+          }
+          if (r5 !== null) {
+            reportedPos = r6;
+            r5 = (function(a) {return a})(r9);
+          }
+          if (r5 === null) {
+            pos = r6;
+          }
+          while (r5 !== null) {
+            r4.push(r5);
+            r6 = pos;
+            r7 = pos;
+            r8 = parse__();
+            if (r8 !== null) {
+              r9 = parse_pseudoElement();
+              if (r9 !== null) {
+                r5 = [r8, r9];
+              } else {
+                r5 = null;
+                pos = r7;
+              }
+            } else {
+              r5 = null;
+              pos = r7;
+            }
+            if (r5 !== null) {
+              reportedPos = r6;
+              r5 = (function(a) {return a})(r9);
+            }
+            if (r5 === null) {
+              pos = r6;
+            }
+          }
+          if (r4 !== null) {
+            r0 = [r3, r4];
+          } else {
+            r0 = null;
+            pos = r2;
+          }
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(first, rest) {
+        		rest.unshift(first)
+        		return N('pseudoArgument', rest)
+        	})(r3, r4);
+        }
+        if (r0 === null) {
+          pos = r1;
+        }
+        return r0;
+      }
+      
+      function parse_pseudoElement() {
+        var r0;
+        
+        if (/^[\-+]/.test(input.charAt(pos))) {
+          r0 = input.charAt(pos);
+          pos++;
+        } else {
+          r0 = null;
+          if (reportFailures === 0) {
+            matchFailed("[\\-+]");
+          }
+        }
+        if (r0 === null) {
+          r0 = parse_dimension();
+          if (r0 === null) {
+            r0 = parse_number();
+            if (r0 === null) {
+              r0 = parse_string();
+              if (r0 === null) {
+                r0 = parse_identifier();
+              }
+            }
+          }
+        }
+        return r0;
+      }
+      
       function parse_ruleList() {
+        var r0, r1, r2, r3, r4, r5, r6, r7;
+        
+        r1 = pos;
+        r2 = pos;
+        if (input.charCodeAt(pos) === 123) {
+          r3 = "{";
+          pos++;
+        } else {
+          r3 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"{\"");
+          }
+        }
+        if (r3 !== null) {
+          r4 = parse__();
+          if (r4 !== null) {
+            r5 = parse_rules();
+            r5 = r5 !== null ? r5 : "";
+            if (r5 !== null) {
+              r6 = parse__();
+              if (r6 !== null) {
+                if (input.charCodeAt(pos) === 125) {
+                  r7 = "}";
+                  pos++;
+                } else {
+                  r7 = null;
+                  if (reportFailures === 0) {
+                    matchFailed("\"}\"");
+                  }
+                }
+                if (r7 !== null) {
+                  r0 = [r3, r4, r5, r6, r7];
+                } else {
+                  r0 = null;
+                  pos = r2;
+                }
+              } else {
+                r0 = null;
+                pos = r2;
+              }
+            } else {
+              r0 = null;
+              pos = r2;
+            }
+          } else {
+            r0 = null;
+            pos = r2;
+          }
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(rules) {
+        		return N('ruleList', rules || [])
+        	})(r5);
+        }
+        if (r0 === null) {
+          pos = r1;
+        }
+        return r0;
+      }
+      
+      function parse_rules() {
         var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
         
         r1 = pos;
@@ -1690,7 +1793,7 @@ var generatedParser = (function(){
           r4 = [];
           r6 = pos;
           r7 = pos;
-          r8 = parse_isodent();
+          r8 = parse__();
           if (r8 !== null) {
             r9 = parse_rule();
             if (r9 !== null) {
@@ -1714,7 +1817,7 @@ var generatedParser = (function(){
             r4.push(r5);
             r6 = pos;
             r7 = pos;
-            r8 = parse_isodent();
+            r8 = parse__();
             if (r8 !== null) {
               r9 = parse_rule();
               if (r9 !== null) {
@@ -1749,8 +1852,7 @@ var generatedParser = (function(){
           reportedPos = r1;
           r0 = (function(first, rest) {
         		rest.unshift(first)
-        		rest = _.flatten(rest)
-        		return N('ruleList', rest)
+        		return rest
         	})(r3, r4);
         }
         if (r0 === null) {
@@ -1764,29 +1866,29 @@ var generatedParser = (function(){
         
         r0 = parse_ruleset();
         if (r0 === null) {
-          r0 = parse_properties();
+          r0 = parse_property();
           if (r0 === null) {
-            r0 = parse_property();
+            r0 = parse_assignment();
             if (r0 === null) {
-              r0 = parse_assignment();
+              r0 = parse_extend();
               if (r0 === null) {
-                r0 = parse_extend();
+                r0 = parse_media();
                 if (r0 === null) {
-                  r0 = parse_media();
+                  r0 = parse_void();
                   if (r0 === null) {
-                    r0 = parse_void();
+                    r0 = parse_block();
                     if (r0 === null) {
-                      r0 = parse_block();
+                      r0 = parse_import();
                       if (r0 === null) {
-                        r0 = parse_import();
+                        r0 = parse_if();
                         if (r0 === null) {
-                          r0 = parse_if();
+                          r0 = parse_for();
                           if (r0 === null) {
-                            r0 = parse_for();
+                            r0 = parse_mixinCall();
                             if (r0 === null) {
-                              r0 = parse_mixinCall();
+                              r0 = parse_keyframes();
                               if (r0 === null) {
-                                r0 = parse_keyframes();
+                                r0 = parse_fontFace();
                               }
                             }
                           }
@@ -1802,130 +1904,8 @@ var generatedParser = (function(){
         return r0;
       }
       
-      function parse_properties() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;
-        
-        r1 = pos;
-        r2 = pos;
-        r3 = parse_property();
-        if (r3 !== null) {
-          r6 = pos;
-          r7 = pos;
-          r8 = parse__();
-          if (r8 !== null) {
-            if (input.charCodeAt(pos) === 59) {
-              r9 = ";";
-              pos++;
-            } else {
-              r9 = null;
-              if (reportFailures === 0) {
-                matchFailed("\";\"");
-              }
-            }
-            if (r9 !== null) {
-              r10 = parse__();
-              if (r10 !== null) {
-                r11 = parse_property();
-                if (r11 !== null) {
-                  r5 = [r8, r9, r10, r11];
-                } else {
-                  r5 = null;
-                  pos = r7;
-                }
-              } else {
-                r5 = null;
-                pos = r7;
-              }
-            } else {
-              r5 = null;
-              pos = r7;
-            }
-          } else {
-            r5 = null;
-            pos = r7;
-          }
-          if (r5 !== null) {
-            reportedPos = r6;
-            r5 = (function(p) {return p})(r11);
-          }
-          if (r5 === null) {
-            pos = r6;
-          }
-          if (r5 !== null) {
-            r4 = [];
-            while (r5 !== null) {
-              r4.push(r5);
-              r6 = pos;
-              r7 = pos;
-              r8 = parse__();
-              if (r8 !== null) {
-                if (input.charCodeAt(pos) === 59) {
-                  r9 = ";";
-                  pos++;
-                } else {
-                  r9 = null;
-                  if (reportFailures === 0) {
-                    matchFailed("\";\"");
-                  }
-                }
-                if (r9 !== null) {
-                  r10 = parse__();
-                  if (r10 !== null) {
-                    r11 = parse_property();
-                    if (r11 !== null) {
-                      r5 = [r8, r9, r10, r11];
-                    } else {
-                      r5 = null;
-                      pos = r7;
-                    }
-                  } else {
-                    r5 = null;
-                    pos = r7;
-                  }
-                } else {
-                  r5 = null;
-                  pos = r7;
-                }
-              } else {
-                r5 = null;
-                pos = r7;
-              }
-              if (r5 !== null) {
-                reportedPos = r6;
-                r5 = (function(p) {return p})(r11);
-              }
-              if (r5 === null) {
-                pos = r6;
-              }
-            }
-          } else {
-            r4 = null;
-          }
-          if (r4 !== null) {
-            r0 = [r3, r4];
-          } else {
-            r0 = null;
-            pos = r2;
-          }
-        } else {
-          r0 = null;
-          pos = r2;
-        }
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(first, rest) {
-        		rest.unshift(first)
-        		return rest
-        	})(r3, r4);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
-        return r0;
-      }
-      
       function parse_property() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10;
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12;
         
         r1 = pos;
         r2 = pos;
@@ -1971,7 +1951,19 @@ var generatedParser = (function(){
                       }
                       r10 = r10 !== null ? r10 : "";
                       if (r10 !== null) {
-                        r0 = [r3, r4, r5, r6, r7, r8, r9, r10];
+                        r11 = parse__();
+                        if (r11 !== null) {
+                          r12 = parse_semicolon();
+                          if (r12 !== null) {
+                            r0 = [r3, r4, r5, r6, r7, r8, r9, r10, r11, r12];
+                          } else {
+                            r0 = null;
+                            pos = r2;
+                          }
+                        } else {
+                          r0 = null;
+                          pos = r2;
+                        }
                       } else {
                         r0 = null;
                         pos = r2;
@@ -2022,6 +2014,101 @@ var generatedParser = (function(){
         return r0;
       }
       
+      function parse_semicolon() {
+        var r0, r1, r2, r3, r4, r5, r6, r7;
+        
+        r1 = pos;
+        reportFailures++;
+        if (input.charCodeAt(pos) === 125) {
+          r0 = "}";
+          pos++;
+        } else {
+          r0 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"}\"");
+          }
+        }
+        reportFailures--;
+        if (r0 !== null) {
+          r0 = "";
+          pos = r1;
+        } else {
+          r0 = null;
+        }
+        if (r0 === null) {
+          r1 = pos;
+          if (input.charCodeAt(pos) === 59) {
+            r2 = ";";
+            pos++;
+          } else {
+            r2 = null;
+            if (reportFailures === 0) {
+              matchFailed("\";\"");
+            }
+          }
+          if (r2 !== null) {
+            r3 = [];
+            r5 = pos;
+            r6 = parse__();
+            if (r6 !== null) {
+              if (input.charCodeAt(pos) === 59) {
+                r7 = ";";
+                pos++;
+              } else {
+                r7 = null;
+                if (reportFailures === 0) {
+                  matchFailed("\";\"");
+                }
+              }
+              if (r7 !== null) {
+                r4 = [r6, r7];
+              } else {
+                r4 = null;
+                pos = r5;
+              }
+            } else {
+              r4 = null;
+              pos = r5;
+            }
+            while (r4 !== null) {
+              r3.push(r4);
+              r5 = pos;
+              r6 = parse__();
+              if (r6 !== null) {
+                if (input.charCodeAt(pos) === 59) {
+                  r7 = ";";
+                  pos++;
+                } else {
+                  r7 = null;
+                  if (reportFailures === 0) {
+                    matchFailed("\";\"");
+                  }
+                }
+                if (r7 !== null) {
+                  r4 = [r6, r7];
+                } else {
+                  r4 = null;
+                  pos = r5;
+                }
+              } else {
+                r4 = null;
+                pos = r5;
+              }
+            }
+            if (r3 !== null) {
+              r0 = [r2, r3];
+            } else {
+              r0 = null;
+              pos = r1;
+            }
+          } else {
+            r0 = null;
+            pos = r1;
+          }
+        }
+        return r0;
+      }
+      
       function parse_list() {
         var r0, r1, r2, r3, r4, r5, r6, r7, r8;
         
@@ -2049,76 +2136,6 @@ var generatedParser = (function(){
               r4.push(r5);
               r6 = pos;
               r7 = parse_separator();
-              if (r7 !== null) {
-                r8 = parse_logicalOrExpression();
-                if (r8 !== null) {
-                  r5 = [r7, r8];
-                } else {
-                  r5 = null;
-                  pos = r6;
-                }
-              } else {
-                r5 = null;
-                pos = r6;
-              }
-            }
-          } else {
-            r4 = null;
-          }
-          if (r4 !== null) {
-            r0 = [r3, r4];
-          } else {
-            r0 = null;
-            pos = r2;
-          }
-        } else {
-          r0 = null;
-          pos = r2;
-        }
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(first, rest) {
-        		rest = _.flatten(rest)
-        		rest.unshift(first)
-        		return N('list', rest)
-        	})(r3, r4);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
-        if (r0 === null) {
-          r0 = parse_logicalOrExpression();
-        }
-        return r0;
-      }
-      
-      function parse_nonCommaList() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8;
-        
-        r1 = pos;
-        r2 = pos;
-        r3 = parse_logicalOrExpression();
-        if (r3 !== null) {
-          r6 = pos;
-          r7 = parse_nonCommaSeparator();
-          if (r7 !== null) {
-            r8 = parse_logicalOrExpression();
-            if (r8 !== null) {
-              r5 = [r7, r8];
-            } else {
-              r5 = null;
-              pos = r6;
-            }
-          } else {
-            r5 = null;
-            pos = r6;
-          }
-          if (r5 !== null) {
-            r4 = [];
-            while (r5 !== null) {
-              r4.push(r5);
-              r6 = pos;
-              r7 = parse_nonCommaSeparator();
               if (r7 !== null) {
                 r8 = parse_logicalOrExpression();
                 if (r8 !== null) {
@@ -2201,6 +2218,31 @@ var generatedParser = (function(){
         return r0;
       }
       
+      function parse_commaSeparator() {
+        var r0, r1;
+        
+        r1 = pos;
+        if (input.charCodeAt(pos) === 44) {
+          r0 = ",";
+          pos++;
+        } else {
+          r0 = null;
+          if (reportFailures === 0) {
+            matchFailed("\",\"");
+          }
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(value) {
+        		return N('separator', [value])
+        	})(r0);
+        }
+        if (r0 === null) {
+          pos = r1;
+        }
+        return r0;
+      }
+      
       function parse_nonCommaSeparator() {
         var r0, r1, r2;
         
@@ -2237,27 +2279,72 @@ var generatedParser = (function(){
         return r0;
       }
       
-      function parse_commaSeparator() {
-        var r0, r1;
+      function parse_nonCommaList() {
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8;
         
         r1 = pos;
-        if (input.charCodeAt(pos) === 44) {
-          r0 = ",";
-          pos++;
+        r2 = pos;
+        r3 = parse_logicalOrExpression();
+        if (r3 !== null) {
+          r6 = pos;
+          r7 = parse_nonCommaSeparator();
+          if (r7 !== null) {
+            r8 = parse_logicalOrExpression();
+            if (r8 !== null) {
+              r5 = [r7, r8];
+            } else {
+              r5 = null;
+              pos = r6;
+            }
+          } else {
+            r5 = null;
+            pos = r6;
+          }
+          if (r5 !== null) {
+            r4 = [];
+            while (r5 !== null) {
+              r4.push(r5);
+              r6 = pos;
+              r7 = parse_nonCommaSeparator();
+              if (r7 !== null) {
+                r8 = parse_logicalOrExpression();
+                if (r8 !== null) {
+                  r5 = [r7, r8];
+                } else {
+                  r5 = null;
+                  pos = r6;
+                }
+              } else {
+                r5 = null;
+                pos = r6;
+              }
+            }
+          } else {
+            r4 = null;
+          }
+          if (r4 !== null) {
+            r0 = [r3, r4];
+          } else {
+            r0 = null;
+            pos = r2;
+          }
         } else {
           r0 = null;
-          if (reportFailures === 0) {
-            matchFailed("\",\"");
-          }
+          pos = r2;
         }
         if (r0 !== null) {
           reportedPos = r1;
-          r0 = (function(value) {
-        		return N('separator', [value])
-        	})(r0);
+          r0 = (function(first, rest) {
+        		rest = _.flatten(rest)
+        		rest.unshift(first)
+        		return N('list', rest)
+        	})(r3, r4);
         }
         if (r0 === null) {
           pos = r1;
+        }
+        if (r0 === null) {
+          r0 = parse_logicalOrExpression();
         }
         return r0;
       }
@@ -2272,7 +2359,7 @@ var generatedParser = (function(){
           r4 = [];
           r6 = pos;
           r7 = pos;
-          r8 = parse_s();
+          r8 = parse__();
           if (r8 !== null) {
             if (input.substr(pos, 2).toLowerCase() === "or") {
               r9 = input.substr(pos, 2);
@@ -2284,7 +2371,7 @@ var generatedParser = (function(){
               }
             }
             if (r9 !== null) {
-              r10 = parse_s();
+              r10 = parse__();
               if (r10 !== null) {
                 r11 = parse_logicalAndExpression();
                 if (r11 !== null) {
@@ -2316,7 +2403,7 @@ var generatedParser = (function(){
             r4.push(r5);
             r6 = pos;
             r7 = pos;
-            r8 = parse_s();
+            r8 = parse__();
             if (r8 !== null) {
               if (input.substr(pos, 2).toLowerCase() === "or") {
                 r9 = input.substr(pos, 2);
@@ -2328,7 +2415,7 @@ var generatedParser = (function(){
                 }
               }
               if (r9 !== null) {
-                r10 = parse_s();
+                r10 = parse__();
                 if (r10 !== null) {
                   r11 = parse_logicalAndExpression();
                   if (r11 !== null) {
@@ -2393,7 +2480,7 @@ var generatedParser = (function(){
           r4 = [];
           r6 = pos;
           r7 = pos;
-          r8 = parse_s();
+          r8 = parse__();
           if (r8 !== null) {
             if (input.substr(pos, 3).toLowerCase() === "and") {
               r9 = input.substr(pos, 3);
@@ -2405,7 +2492,7 @@ var generatedParser = (function(){
               }
             }
             if (r9 !== null) {
-              r10 = parse_s();
+              r10 = parse__();
               if (r10 !== null) {
                 r11 = parse_equalityExpression();
                 if (r11 !== null) {
@@ -2437,7 +2524,7 @@ var generatedParser = (function(){
             r4.push(r5);
             r6 = pos;
             r7 = pos;
-            r8 = parse_s();
+            r8 = parse__();
             if (r8 !== null) {
               if (input.substr(pos, 3).toLowerCase() === "and") {
                 r9 = input.substr(pos, 3);
@@ -2449,7 +2536,7 @@ var generatedParser = (function(){
                 }
               }
               if (r9 !== null) {
-                r10 = parse_s();
+                r10 = parse__();
                 if (r10 !== null) {
                   r11 = parse_equalityExpression();
                   if (r11 !== null) {
@@ -2515,7 +2602,7 @@ var generatedParser = (function(){
           r6 = pos;
           r8 = pos;
           r9 = pos;
-          r10 = parse_s();
+          r10 = parse__();
           if (r10 !== null) {
             if (input.substr(pos, 4).toLowerCase() === "isnt") {
               r11 = input.substr(pos, 4);
@@ -2538,7 +2625,7 @@ var generatedParser = (function(){
               }
             }
             if (r11 !== null) {
-              r12 = parse_s();
+              r12 = parse__();
               if (r12 !== null) {
                 r7 = [r10, r11, r12];
               } else {
@@ -2577,7 +2664,7 @@ var generatedParser = (function(){
             r6 = pos;
             r8 = pos;
             r9 = pos;
-            r10 = parse_s();
+            r10 = parse__();
             if (r10 !== null) {
               if (input.substr(pos, 4).toLowerCase() === "isnt") {
                 r11 = input.substr(pos, 4);
@@ -2600,7 +2687,7 @@ var generatedParser = (function(){
                 }
               }
               if (r11 !== null) {
-                r12 = parse_s();
+                r12 = parse__();
                 if (r12 !== null) {
                   r7 = [r10, r11, r12];
                 } else {
@@ -2853,7 +2940,7 @@ var generatedParser = (function(){
       }
       
       function parse_range() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8;
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
         
         r1 = pos;
         r2 = pos;
@@ -2861,36 +2948,47 @@ var generatedParser = (function(){
         if (r3 !== null) {
           r4 = parse__();
           if (r4 !== null) {
+            r6 = pos;
+            r7 = pos;
             if (input.substr(pos, 2) === "..") {
-              r5 = "..";
+              r8 = "..";
               pos += 2;
             } else {
-              r5 = null;
+              r8 = null;
               if (reportFailures === 0) {
                 matchFailed("\"..\"");
               }
             }
-            if (r5 !== null) {
+            if (r8 !== null) {
               if (input.charCodeAt(pos) === 46) {
-                r6 = ".";
+                r9 = ".";
                 pos++;
               } else {
-                r6 = null;
+                r9 = null;
                 if (reportFailures === 0) {
                   matchFailed("\".\"");
                 }
               }
-              r6 = r6 !== null ? r6 : "";
+              r9 = r9 !== null ? r9 : "";
+              if (r9 !== null) {
+                r5 = [r8, r9];
+              } else {
+                r5 = null;
+                pos = r7;
+              }
+            } else {
+              r5 = null;
+              pos = r7;
+            }
+            if (r5 !== null) {
+              r5 = input.substring(pos, r6);
+            }
+            if (r5 !== null) {
+              r6 = parse__();
               if (r6 !== null) {
-                r7 = parse__();
+                r7 = parse_additiveExpression();
                 if (r7 !== null) {
-                  r8 = parse_additiveExpression();
-                  if (r8 !== null) {
-                    r0 = [r3, r4, r5, r6, r7, r8];
-                  } else {
-                    r0 = null;
-                    pos = r2;
-                  }
+                  r0 = [r3, r4, r5, r6, r7];
                 } else {
                   r0 = null;
                   pos = r2;
@@ -2913,9 +3011,9 @@ var generatedParser = (function(){
         }
         if (r0 !== null) {
           reportedPos = r1;
-          r0 = (function(from, exclusive, to) {
-        		return N('range', [from, to], {exclusive: !!exclusive})
-        	})(r3, r6, r8);
+          r0 = (function(from, operator, to) {
+        		return N('range', [from, operator, to])
+        	})(r3, r5, r7);
         }
         if (r0 === null) {
           pos = r1;
@@ -3472,8 +3570,8 @@ var generatedParser = (function(){
         }
         if (r0 !== null) {
           reportedPos = r1;
-          r0 = (function(expression) {
-        		return expression
+          r0 = (function(list) {
+        		return list
         	})(r5);
         }
         if (r0 === null) {
@@ -3752,6 +3850,44 @@ var generatedParser = (function(){
           r0 = (function(variable) {
         		return variable
         	})(r5);
+        }
+        if (r0 === null) {
+          pos = r1;
+        }
+        return r0;
+      }
+      
+      function parse_variable() {
+        var r0, r1, r2, r3, r4;
+        
+        r1 = pos;
+        r2 = pos;
+        if (input.charCodeAt(pos) === 36) {
+          r3 = "$";
+          pos++;
+        } else {
+          r3 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"$\"");
+          }
+        }
+        if (r3 !== null) {
+          r4 = parse_rawIdentifier();
+          if (r4 !== null) {
+            r0 = [r3, r4];
+          } else {
+            r0 = null;
+            pos = r2;
+          }
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(value) {
+        		return N('variable', [value])
+        	})(r4);
         }
         if (r0 === null) {
           pos = r1;
@@ -4762,7 +4898,19 @@ var generatedParser = (function(){
                   r7 = parse_list();
                 }
                 if (r7 !== null) {
-                  r0 = [r3, r4, r5, r6, r7];
+                  r8 = parse__();
+                  if (r8 !== null) {
+                    r9 = parse_semicolon();
+                    if (r9 !== null) {
+                      r0 = [r3, r4, r5, r6, r7, r8, r9];
+                    } else {
+                      r0 = null;
+                      pos = r2;
+                    }
+                  } else {
+                    r0 = null;
+                    pos = r2;
+                  }
                 } else {
                   r0 = null;
                   pos = r2;
@@ -4795,46 +4943,8 @@ var generatedParser = (function(){
         return r0;
       }
       
-      function parse_variable() {
-        var r0, r1, r2, r3, r4;
-        
-        r1 = pos;
-        r2 = pos;
-        if (input.charCodeAt(pos) === 36) {
-          r3 = "$";
-          pos++;
-        } else {
-          r3 = null;
-          if (reportFailures === 0) {
-            matchFailed("\"$\"");
-          }
-        }
-        if (r3 !== null) {
-          r4 = parse_rawIdentifier();
-          if (r4 !== null) {
-            r0 = [r3, r4];
-          } else {
-            r0 = null;
-            pos = r2;
-          }
-        } else {
-          r0 = null;
-          pos = r2;
-        }
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(value) {
-        		return N('variable', [value])
-        	})(r4);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
-        return r0;
-      }
-      
       function parse_media() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8;
+        var r0, r1, r2, r3, r4, r5, r6, r7;
         
         r1 = pos;
         r2 = pos;
@@ -4848,21 +4958,15 @@ var generatedParser = (function(){
           }
         }
         if (r3 !== null) {
-          r4 = parse_s();
+          r4 = parse__();
           if (r4 !== null) {
             r5 = parse_mediaQueryList();
             if (r5 !== null) {
-              r6 = parse_indent();
+              r6 = parse__();
               if (r6 !== null) {
                 r7 = parse_ruleList();
                 if (r7 !== null) {
-                  r8 = parse_outdent();
-                  if (r8 !== null) {
-                    r0 = [r3, r4, r5, r6, r7, r8];
-                  } else {
-                    r0 = null;
-                    pos = r2;
-                  }
+                  r0 = [r3, r4, r5, r6, r7];
                 } else {
                   r0 = null;
                   pos = r2;
@@ -5029,7 +5133,7 @@ var generatedParser = (function(){
           r4 = [];
           r6 = pos;
           r7 = pos;
-          r8 = parse_s();
+          r8 = parse__();
           if (r8 !== null) {
             if (input.substr(pos, 3).toLowerCase() === "and") {
               r9 = input.substr(pos, 3);
@@ -5041,7 +5145,7 @@ var generatedParser = (function(){
               }
             }
             if (r9 !== null) {
-              r10 = parse_s();
+              r10 = parse__();
               if (r10 !== null) {
                 r11 = parse_mediaInterpolation();
                 if (r11 === null) {
@@ -5076,7 +5180,7 @@ var generatedParser = (function(){
             r4.push(r5);
             r6 = pos;
             r7 = pos;
-            r8 = parse_s();
+            r8 = parse__();
             if (r8 !== null) {
               if (input.substr(pos, 3).toLowerCase() === "and") {
                 r9 = input.substr(pos, 3);
@@ -5088,7 +5192,7 @@ var generatedParser = (function(){
                 }
               }
               if (r9 !== null) {
-                r10 = parse_s();
+                r10 = parse__();
                 if (r10 !== null) {
                   r11 = parse_mediaInterpolation();
                   if (r11 === null) {
@@ -5188,7 +5292,7 @@ var generatedParser = (function(){
           }
         }
         if (r6 !== null) {
-          r7 = parse_s();
+          r7 = parse__();
           if (r7 !== null) {
             r3 = [r6, r7];
           } else {
@@ -5344,7 +5448,7 @@ var generatedParser = (function(){
       }
       
       function parse_extend() {
-        var r0, r1, r2, r3, r4, r5;
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8;
         
         r1 = pos;
         r2 = pos;
@@ -5358,11 +5462,38 @@ var generatedParser = (function(){
           }
         }
         if (r3 !== null) {
-          r4 = parse_s();
+          if (input.substr(pos, 4).toLowerCase() === "-all") {
+            r4 = input.substr(pos, 4);
+            pos += 4;
+          } else {
+            r4 = null;
+            if (reportFailures === 0) {
+              matchFailed("\"-all\"");
+            }
+          }
+          r4 = r4 !== null ? r4 : "";
           if (r4 !== null) {
-            r5 = parse_singleLineSelectorList();
+            r5 = parse__();
             if (r5 !== null) {
-              r0 = [r3, r4, r5];
+              r6 = parse_selectorList();
+              if (r6 !== null) {
+                r7 = parse__();
+                if (r7 !== null) {
+                  r8 = parse_semicolon();
+                  if (r8 !== null) {
+                    r0 = [r3, r4, r5, r6, r7, r8];
+                  } else {
+                    r0 = null;
+                    pos = r2;
+                  }
+                } else {
+                  r0 = null;
+                  pos = r2;
+                }
+              } else {
+                r0 = null;
+                pos = r2;
+              }
             } else {
               r0 = null;
               pos = r2;
@@ -5377,9 +5508,9 @@ var generatedParser = (function(){
         }
         if (r0 !== null) {
           reportedPos = r1;
-          r0 = (function(selectorList) {
-        		return N('extend', [selectorList])
-        	})(r5);
+          r0 = (function(all, selectorList) {
+        		return N('extend', [selectorList], {all: !!all})
+        	})(r4, r6);
         }
         if (r0 === null) {
           pos = r1;
@@ -5388,7 +5519,7 @@ var generatedParser = (function(){
       }
       
       function parse_void() {
-        var r0, r1, r2, r3, r4, r5, r6;
+        var r0, r1, r2, r3, r4, r5;
         
         r1 = pos;
         r2 = pos;
@@ -5402,17 +5533,11 @@ var generatedParser = (function(){
           }
         }
         if (r3 !== null) {
-          r4 = parse_indent();
+          r4 = parse__();
           if (r4 !== null) {
             r5 = parse_ruleList();
             if (r5 !== null) {
-              r6 = parse_outdent();
-              if (r6 !== null) {
-                r0 = [r3, r4, r5, r6];
-              } else {
-                r0 = null;
-                pos = r2;
-              }
+              r0 = [r3, r4, r5];
             } else {
               r0 = null;
               pos = r2;
@@ -5438,7 +5563,7 @@ var generatedParser = (function(){
       }
       
       function parse_block() {
-        var r0, r1, r2, r3, r4, r5, r6;
+        var r0, r1, r2, r3, r4, r5;
         
         r1 = pos;
         r2 = pos;
@@ -5452,17 +5577,11 @@ var generatedParser = (function(){
           }
         }
         if (r3 !== null) {
-          r4 = parse_indent();
+          r4 = parse__();
           if (r4 !== null) {
             r5 = parse_ruleList();
             if (r5 !== null) {
-              r6 = parse_outdent();
-              if (r6 !== null) {
-                r0 = [r3, r4, r5, r6];
-              } else {
-                r0 = null;
-                pos = r2;
-              }
+              r0 = [r3, r4, r5];
             } else {
               r0 = null;
               pos = r2;
@@ -5488,7 +5607,7 @@ var generatedParser = (function(){
       }
       
       function parse_import() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10;
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;
         
         r1 = pos;
         r2 = pos;
@@ -5502,7 +5621,7 @@ var generatedParser = (function(){
           }
         }
         if (r3 !== null) {
-          r4 = parse_s();
+          r4 = parse__();
           if (r4 !== null) {
             r5 = parse_string();
             if (r5 === null) {
@@ -5512,31 +5631,43 @@ var generatedParser = (function(){
               }
             }
             if (r5 !== null) {
-              r7 = pos;
-              r8 = pos;
-              r9 = parse__();
-              if (r9 !== null) {
+              r6 = parse__();
+              if (r6 !== null) {
+                r8 = pos;
+                r9 = pos;
                 r10 = parse_mediaQueryList();
                 if (r10 !== null) {
-                  r6 = [r9, r10];
+                  r11 = parse__();
+                  if (r11 !== null) {
+                    r7 = [r10, r11];
+                  } else {
+                    r7 = null;
+                    pos = r9;
+                  }
                 } else {
-                  r6 = null;
+                  r7 = null;
+                  pos = r9;
+                }
+                if (r7 !== null) {
+                  reportedPos = r8;
+                  r7 = (function(m) {return m})(r10);
+                }
+                if (r7 === null) {
                   pos = r8;
                 }
-              } else {
-                r6 = null;
-                pos = r8;
-              }
-              if (r6 !== null) {
-                reportedPos = r7;
-                r6 = (function(m) {return m})(r10);
-              }
-              if (r6 === null) {
-                pos = r7;
-              }
-              r6 = r6 !== null ? r6 : "";
-              if (r6 !== null) {
-                r0 = [r3, r4, r5, r6];
+                r7 = r7 !== null ? r7 : "";
+                if (r7 !== null) {
+                  r8 = parse_semicolon();
+                  if (r8 !== null) {
+                    r0 = [r3, r4, r5, r6, r7, r8];
+                  } else {
+                    r0 = null;
+                    pos = r2;
+                  }
+                } else {
+                  r0 = null;
+                  pos = r2;
+                }
               } else {
                 r0 = null;
                 pos = r2;
@@ -5557,7 +5688,7 @@ var generatedParser = (function(){
           reportedPos = r1;
           r0 = (function(value, mediaQueryList) {
         		return N('import', [value, mediaQueryList || null])
-        	})(r5, r6);
+        	})(r5, r7);
         }
         if (r0 === null) {
           pos = r1;
@@ -5679,7 +5810,7 @@ var generatedParser = (function(){
       }
       
       function parse_if() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13;
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12;
         
         r1 = pos;
         r2 = pos;
@@ -5693,48 +5824,42 @@ var generatedParser = (function(){
           }
         }
         if (r3 !== null) {
-          r4 = parse_s();
+          r4 = parse__();
           if (r4 !== null) {
             r5 = parse_list();
             if (r5 !== null) {
-              r6 = parse_indent();
+              r6 = parse__();
               if (r6 !== null) {
                 r7 = parse_ruleList();
                 if (r7 !== null) {
-                  r8 = parse_outdent();
-                  if (r8 !== null) {
-                    r10 = pos;
-                    r11 = pos;
-                    r12 = parse_isodent();
+                  r9 = pos;
+                  r10 = pos;
+                  r11 = parse__();
+                  if (r11 !== null) {
+                    r12 = parse_elseIf();
+                    if (r12 === null) {
+                      r12 = parse_else();
+                    }
                     if (r12 !== null) {
-                      r13 = parse_elseIf();
-                      if (r13 === null) {
-                        r13 = parse_else();
-                      }
-                      if (r13 !== null) {
-                        r9 = [r12, r13];
-                      } else {
-                        r9 = null;
-                        pos = r11;
-                      }
+                      r8 = [r11, r12];
                     } else {
-                      r9 = null;
-                      pos = r11;
-                    }
-                    if (r9 !== null) {
-                      reportedPos = r10;
-                      r9 = (function(e) {return e})(r13);
-                    }
-                    if (r9 === null) {
+                      r8 = null;
                       pos = r10;
                     }
-                    r9 = r9 !== null ? r9 : "";
-                    if (r9 !== null) {
-                      r0 = [r3, r4, r5, r6, r7, r8, r9];
-                    } else {
-                      r0 = null;
-                      pos = r2;
-                    }
+                  } else {
+                    r8 = null;
+                    pos = r10;
+                  }
+                  if (r8 !== null) {
+                    reportedPos = r9;
+                    r8 = (function(e) {return e})(r12);
+                  }
+                  if (r8 === null) {
+                    pos = r9;
+                  }
+                  r8 = r8 !== null ? r8 : "";
+                  if (r8 !== null) {
+                    r0 = [r3, r4, r5, r6, r7, r8];
                   } else {
                     r0 = null;
                     pos = r2;
@@ -5763,7 +5888,7 @@ var generatedParser = (function(){
           reportedPos = r1;
           r0 = (function(condition, consequence, alternative) {
         		return N('if', [condition, consequence, alternative || null])
-        	})(r5, r7, r9);
+        	})(r5, r7, r8);
         }
         if (r0 === null) {
           pos = r1;
@@ -5772,100 +5897,7 @@ var generatedParser = (function(){
       }
       
       function parse_elseIf() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13;
-        
-        r1 = pos;
-        r2 = pos;
-        if (input.substr(pos, 8).toLowerCase() === "@else if") {
-          r3 = input.substr(pos, 8);
-          pos += 8;
-        } else {
-          r3 = null;
-          if (reportFailures === 0) {
-            matchFailed("\"@else if\"");
-          }
-        }
-        if (r3 !== null) {
-          r4 = parse_s();
-          if (r4 !== null) {
-            r5 = parse_list();
-            if (r5 !== null) {
-              r6 = parse_indent();
-              if (r6 !== null) {
-                r7 = parse_ruleList();
-                if (r7 !== null) {
-                  r8 = parse_outdent();
-                  if (r8 !== null) {
-                    r10 = pos;
-                    r11 = pos;
-                    r12 = parse_isodent();
-                    if (r12 !== null) {
-                      r13 = parse_elseIf();
-                      if (r13 === null) {
-                        r13 = parse_else();
-                      }
-                      if (r13 !== null) {
-                        r9 = [r12, r13];
-                      } else {
-                        r9 = null;
-                        pos = r11;
-                      }
-                    } else {
-                      r9 = null;
-                      pos = r11;
-                    }
-                    if (r9 !== null) {
-                      reportedPos = r10;
-                      r9 = (function(e) {return e})(r13);
-                    }
-                    if (r9 === null) {
-                      pos = r10;
-                    }
-                    r9 = r9 !== null ? r9 : "";
-                    if (r9 !== null) {
-                      r0 = [r3, r4, r5, r6, r7, r8, r9];
-                    } else {
-                      r0 = null;
-                      pos = r2;
-                    }
-                  } else {
-                    r0 = null;
-                    pos = r2;
-                  }
-                } else {
-                  r0 = null;
-                  pos = r2;
-                }
-              } else {
-                r0 = null;
-                pos = r2;
-              }
-            } else {
-              r0 = null;
-              pos = r2;
-            }
-          } else {
-            r0 = null;
-            pos = r2;
-          }
-        } else {
-          r0 = null;
-          pos = r2;
-        }
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(condition, consequence, alternative) {
-        		return N('if', [condition, consequence, alternative || null])
-        	})(r5, r7, r9);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
-        return r0;
-      }
-      
-      function parse_else() {
-        var r0, r1, r2, r3, r4, r5, r6;
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14;
         
         r1 = pos;
         r2 = pos;
@@ -5879,17 +5911,118 @@ var generatedParser = (function(){
           }
         }
         if (r3 !== null) {
-          r4 = parse_indent();
+          r4 = parse__();
           if (r4 !== null) {
-            r5 = parse_ruleList();
+            if (input.substr(pos, 2).toLowerCase() === "if") {
+              r5 = input.substr(pos, 2);
+              pos += 2;
+            } else {
+              r5 = null;
+              if (reportFailures === 0) {
+                matchFailed("\"if\"");
+              }
+            }
             if (r5 !== null) {
-              r6 = parse_outdent();
+              r6 = parse__();
               if (r6 !== null) {
-                r0 = [r3, r4, r5, r6];
+                r7 = parse_list();
+                if (r7 !== null) {
+                  r8 = parse__();
+                  if (r8 !== null) {
+                    r9 = parse_ruleList();
+                    if (r9 !== null) {
+                      r11 = pos;
+                      r12 = pos;
+                      r13 = parse__();
+                      if (r13 !== null) {
+                        r14 = parse_elseIf();
+                        if (r14 === null) {
+                          r14 = parse_else();
+                        }
+                        if (r14 !== null) {
+                          r10 = [r13, r14];
+                        } else {
+                          r10 = null;
+                          pos = r12;
+                        }
+                      } else {
+                        r10 = null;
+                        pos = r12;
+                      }
+                      if (r10 !== null) {
+                        reportedPos = r11;
+                        r10 = (function(e) {return e})(r14);
+                      }
+                      if (r10 === null) {
+                        pos = r11;
+                      }
+                      r10 = r10 !== null ? r10 : "";
+                      if (r10 !== null) {
+                        r0 = [r3, r4, r5, r6, r7, r8, r9, r10];
+                      } else {
+                        r0 = null;
+                        pos = r2;
+                      }
+                    } else {
+                      r0 = null;
+                      pos = r2;
+                    }
+                  } else {
+                    r0 = null;
+                    pos = r2;
+                  }
+                } else {
+                  r0 = null;
+                  pos = r2;
+                }
               } else {
                 r0 = null;
                 pos = r2;
               }
+            } else {
+              r0 = null;
+              pos = r2;
+            }
+          } else {
+            r0 = null;
+            pos = r2;
+          }
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(condition, consequence, alternative) {
+        		return N('if', [condition, consequence, alternative || null])
+        	})(r7, r9, r10);
+        }
+        if (r0 === null) {
+          pos = r1;
+        }
+        return r0;
+      }
+      
+      function parse_else() {
+        var r0, r1, r2, r3, r4, r5;
+        
+        r1 = pos;
+        r2 = pos;
+        if (input.substr(pos, 5).toLowerCase() === "@else") {
+          r3 = input.substr(pos, 5);
+          pos += 5;
+        } else {
+          r3 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"@else\"");
+          }
+        }
+        if (r3 !== null) {
+          r4 = parse__();
+          if (r4 !== null) {
+            r5 = parse_ruleList();
+            if (r5 !== null) {
+              r0 = [r3, r4, r5];
             } else {
               r0 = null;
               pos = r2;
@@ -5929,14 +6062,14 @@ var generatedParser = (function(){
           }
         }
         if (r3 !== null) {
-          r4 = parse_s();
+          r4 = parse__();
           if (r4 !== null) {
             r5 = parse_variable();
             if (r5 !== null) {
-              r7 = pos;
-              r8 = pos;
-              r9 = parse__();
-              if (r9 !== null) {
+              r6 = parse__();
+              if (r6 !== null) {
+                r8 = pos;
+                r9 = pos;
                 if (input.charCodeAt(pos) === 44) {
                   r10 = ",";
                   pos++;
@@ -5951,49 +6084,7 @@ var generatedParser = (function(){
                   if (r11 !== null) {
                     r12 = parse_variable();
                     if (r12 !== null) {
-                      r6 = [r9, r10, r11, r12];
-                    } else {
-                      r6 = null;
-                      pos = r8;
-                    }
-                  } else {
-                    r6 = null;
-                    pos = r8;
-                  }
-                } else {
-                  r6 = null;
-                  pos = r8;
-                }
-              } else {
-                r6 = null;
-                pos = r8;
-              }
-              if (r6 !== null) {
-                reportedPos = r7;
-                r6 = (function(i) {return i})(r12);
-              }
-              if (r6 === null) {
-                pos = r7;
-              }
-              r6 = r6 !== null ? r6 : "";
-              if (r6 !== null) {
-                r8 = pos;
-                r9 = pos;
-                r10 = parse_s();
-                if (r10 !== null) {
-                  if (input.substr(pos, 2).toLowerCase() === "by") {
-                    r11 = input.substr(pos, 2);
-                    pos += 2;
-                  } else {
-                    r11 = null;
-                    if (reportFailures === 0) {
-                      matchFailed("\"by\"");
-                    }
-                  }
-                  if (r11 !== null) {
-                    r12 = parse_s();
-                    if (r12 !== null) {
-                      r13 = parse_additiveExpression();
+                      r13 = parse__();
                       if (r13 !== null) {
                         r7 = [r10, r11, r12, r13];
                       } else {
@@ -6014,14 +6105,56 @@ var generatedParser = (function(){
                 }
                 if (r7 !== null) {
                   reportedPos = r8;
-                  r7 = (function(a) {return a})(r13);
+                  r7 = (function(i) {return i})(r12);
                 }
                 if (r7 === null) {
                   pos = r8;
                 }
                 r7 = r7 !== null ? r7 : "";
                 if (r7 !== null) {
-                  r8 = parse_s();
+                  r9 = pos;
+                  r10 = pos;
+                  if (input.substr(pos, 2).toLowerCase() === "by") {
+                    r11 = input.substr(pos, 2);
+                    pos += 2;
+                  } else {
+                    r11 = null;
+                    if (reportFailures === 0) {
+                      matchFailed("\"by\"");
+                    }
+                  }
+                  if (r11 !== null) {
+                    r12 = parse__();
+                    if (r12 !== null) {
+                      r13 = parse_additiveExpression();
+                      if (r13 !== null) {
+                        r14 = parse__();
+                        if (r14 !== null) {
+                          r8 = [r11, r12, r13, r14];
+                        } else {
+                          r8 = null;
+                          pos = r10;
+                        }
+                      } else {
+                        r8 = null;
+                        pos = r10;
+                      }
+                    } else {
+                      r8 = null;
+                      pos = r10;
+                    }
+                  } else {
+                    r8 = null;
+                    pos = r10;
+                  }
+                  if (r8 !== null) {
+                    reportedPos = r9;
+                    r8 = (function(a) {return a})(r13);
+                  }
+                  if (r8 === null) {
+                    pos = r9;
+                  }
+                  r8 = r8 !== null ? r8 : "";
                   if (r8 !== null) {
                     if (input.substr(pos, 2).toLowerCase() === "in") {
                       r9 = input.substr(pos, 2);
@@ -6033,21 +6166,15 @@ var generatedParser = (function(){
                       }
                     }
                     if (r9 !== null) {
-                      r10 = parse_s();
+                      r10 = parse__();
                       if (r10 !== null) {
                         r11 = parse_list();
                         if (r11 !== null) {
-                          r12 = parse_indent();
+                          r12 = parse__();
                           if (r12 !== null) {
                             r13 = parse_ruleList();
                             if (r13 !== null) {
-                              r14 = parse_outdent();
-                              if (r14 !== null) {
-                                r0 = [r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14];
-                              } else {
-                                r0 = null;
-                                pos = r2;
-                              }
+                              r0 = [r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13];
                             } else {
                               r0 = null;
                               pos = r2;
@@ -6096,7 +6223,7 @@ var generatedParser = (function(){
           reportedPos = r1;
           r0 = (function(value, index, step, list, ruleList) {
         		return N('for', [value, index || null, step || null, list, ruleList])
-        	})(r5, r6, r7, r11, r13);
+        	})(r5, r7, r8, r11, r13);
         }
         if (r0 === null) {
           pos = r1;
@@ -6121,7 +6248,7 @@ var generatedParser = (function(){
         if (r3 !== null) {
           r5 = pos;
           r6 = pos;
-          r7 = parse_s();
+          r7 = parse__();
           if (r7 !== null) {
             r8 = parse_parameterList();
             if (r8 !== null) {
@@ -6143,17 +6270,11 @@ var generatedParser = (function(){
           }
           r4 = r4 !== null ? r4 : "";
           if (r4 !== null) {
-            r5 = parse_indent();
+            r5 = parse__();
             if (r5 !== null) {
               r6 = parse_ruleList();
               if (r6 !== null) {
-                r7 = parse_outdent();
-                if (r7 !== null) {
-                  r0 = [r3, r4, r5, r6, r7];
-                } else {
-                  r0 = null;
-                  pos = r2;
-                }
+                r0 = [r3, r4, r5, r6];
               } else {
                 r0 = null;
                 pos = r2;
@@ -6437,7 +6558,19 @@ var generatedParser = (function(){
             pos = r5;
           }
           if (r4 !== null) {
-            r0 = [r3, r4];
+            r5 = parse__();
+            if (r5 !== null) {
+              r6 = parse_semicolon();
+              if (r6 !== null) {
+                r0 = [r3, r4, r5, r6];
+              } else {
+                r0 = null;
+                pos = r2;
+              }
+            } else {
+              r0 = null;
+              pos = r2;
+            }
           } else {
             r0 = null;
             pos = r2;
@@ -6575,21 +6708,15 @@ var generatedParser = (function(){
               }
             }
             if (r5 !== null) {
-              r6 = parse_s();
+              r6 = parse__();
               if (r6 !== null) {
                 r7 = parse_identifier();
                 if (r7 !== null) {
-                  r8 = parse_indent();
+                  r8 = parse__();
                   if (r8 !== null) {
                     r9 = parse_keyframeList();
                     if (r9 !== null) {
-                      r10 = parse_outdent();
-                      if (r10 !== null) {
-                        r0 = [r3, r4, r5, r6, r7, r8, r9, r10];
-                      } else {
-                        r0 = null;
-                        pos = r2;
-                      }
+                      r0 = [r3, r4, r5, r6, r7, r8, r9];
                     } else {
                       r0 = null;
                       pos = r2;
@@ -6631,62 +6758,102 @@ var generatedParser = (function(){
       }
       
       function parse_keyframeList() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11;
         
         r1 = pos;
         r2 = pos;
-        r3 = parse_keyframe();
+        if (input.charCodeAt(pos) === 123) {
+          r3 = "{";
+          pos++;
+        } else {
+          r3 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"{\"");
+          }
+        }
         if (r3 !== null) {
-          r4 = [];
-          r6 = pos;
-          r7 = pos;
-          r8 = parse_isodent();
-          if (r8 !== null) {
-            r9 = parse_keyframe();
-            if (r9 !== null) {
-              r5 = [r8, r9];
-            } else {
-              r5 = null;
-              pos = r7;
-            }
-          } else {
-            r5 = null;
-            pos = r7;
-          }
-          if (r5 !== null) {
-            reportedPos = r6;
-            r5 = (function(k) {return k})(r9);
-          }
-          if (r5 === null) {
-            pos = r6;
-          }
-          while (r5 !== null) {
-            r4.push(r5);
-            r6 = pos;
-            r7 = pos;
-            r8 = parse_isodent();
-            if (r8 !== null) {
-              r9 = parse_keyframe();
-              if (r9 !== null) {
-                r5 = [r8, r9];
+          r4 = parse__();
+          if (r4 !== null) {
+            r5 = parse_keyframe();
+            if (r5 !== null) {
+              r6 = [];
+              r8 = pos;
+              r9 = pos;
+              r10 = parse__();
+              if (r10 !== null) {
+                r11 = parse_keyframe();
+                if (r11 !== null) {
+                  r7 = [r10, r11];
+                } else {
+                  r7 = null;
+                  pos = r9;
+                }
               } else {
-                r5 = null;
-                pos = r7;
+                r7 = null;
+                pos = r9;
+              }
+              if (r7 !== null) {
+                reportedPos = r8;
+                r7 = (function(k) {return k})(r11);
+              }
+              if (r7 === null) {
+                pos = r8;
+              }
+              while (r7 !== null) {
+                r6.push(r7);
+                r8 = pos;
+                r9 = pos;
+                r10 = parse__();
+                if (r10 !== null) {
+                  r11 = parse_keyframe();
+                  if (r11 !== null) {
+                    r7 = [r10, r11];
+                  } else {
+                    r7 = null;
+                    pos = r9;
+                  }
+                } else {
+                  r7 = null;
+                  pos = r9;
+                }
+                if (r7 !== null) {
+                  reportedPos = r8;
+                  r7 = (function(k) {return k})(r11);
+                }
+                if (r7 === null) {
+                  pos = r8;
+                }
+              }
+              if (r6 !== null) {
+                r7 = parse__();
+                if (r7 !== null) {
+                  if (input.charCodeAt(pos) === 125) {
+                    r8 = "}";
+                    pos++;
+                  } else {
+                    r8 = null;
+                    if (reportFailures === 0) {
+                      matchFailed("\"}\"");
+                    }
+                  }
+                  if (r8 !== null) {
+                    r0 = [r3, r4, r5, r6, r7, r8];
+                  } else {
+                    r0 = null;
+                    pos = r2;
+                  }
+                } else {
+                  r0 = null;
+                  pos = r2;
+                }
+              } else {
+                r0 = null;
+                pos = r2;
               }
             } else {
-              r5 = null;
-              pos = r7;
+              r0 = null;
+              pos = r2;
             }
-            if (r5 !== null) {
-              reportedPos = r6;
-              r5 = (function(k) {return k})(r9);
-            }
-            if (r5 === null) {
-              pos = r6;
-            }
-          }
-          if (r4 !== null) {
-            r0 = [r3, r4];
           } else {
             r0 = null;
             pos = r2;
@@ -6700,7 +6867,7 @@ var generatedParser = (function(){
           r0 = (function(first, rest) {
         		rest.unshift(first)
         		return N('keyframeList', rest)
-        	})(r3, r4);
+        	})(r5, r6);
         }
         if (r0 === null) {
           pos = r1;
@@ -6709,23 +6876,17 @@ var generatedParser = (function(){
       }
       
       function parse_keyframe() {
-        var r0, r1, r2, r3, r4, r5, r6;
+        var r0, r1, r2, r3, r4, r5;
         
         r1 = pos;
         r2 = pos;
         r3 = parse_keyframeSelectorList();
         if (r3 !== null) {
-          r4 = parse_indent();
+          r4 = parse__();
           if (r4 !== null) {
             r5 = parse_propertyList();
             if (r5 !== null) {
-              r6 = parse_outdent();
-              if (r6 !== null) {
-                r0 = [r3, r4, r5, r6];
-              } else {
-                r0 = null;
-                pos = r2;
-              }
+              r0 = [r3, r4, r5];
             } else {
               r0 = null;
               pos = r2;
@@ -6788,9 +6949,6 @@ var generatedParser = (function(){
             r8 = null;
             pos = r9;
           }
-          if (r8 === null) {
-            r8 = parse_isodent();
-          }
           if (r8 !== null) {
             r9 = parse_keyframeSelector();
             if (r9 !== null) {
@@ -6841,9 +6999,6 @@ var generatedParser = (function(){
             } else {
               r8 = null;
               pos = r9;
-            }
-            if (r8 === null) {
-              r8 = parse_isodent();
             }
             if (r8 !== null) {
               r9 = parse_keyframeSelector();
@@ -6928,24 +7083,82 @@ var generatedParser = (function(){
       }
       
       function parse_propertyList() {
+        var r0, r1, r2, r3, r4, r5, r6, r7;
+        
+        r1 = pos;
+        r2 = pos;
+        if (input.charCodeAt(pos) === 123) {
+          r3 = "{";
+          pos++;
+        } else {
+          r3 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"{\"");
+          }
+        }
+        if (r3 !== null) {
+          r4 = parse__();
+          if (r4 !== null) {
+            r5 = parse_properties();
+            if (r5 !== null) {
+              r6 = parse__();
+              if (r6 !== null) {
+                if (input.charCodeAt(pos) === 125) {
+                  r7 = "}";
+                  pos++;
+                } else {
+                  r7 = null;
+                  if (reportFailures === 0) {
+                    matchFailed("\"}\"");
+                  }
+                }
+                if (r7 !== null) {
+                  r0 = [r3, r4, r5, r6, r7];
+                } else {
+                  r0 = null;
+                  pos = r2;
+                }
+              } else {
+                r0 = null;
+                pos = r2;
+              }
+            } else {
+              r0 = null;
+              pos = r2;
+            }
+          } else {
+            r0 = null;
+            pos = r2;
+          }
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(properties) {
+        		return N('propertyList', properties)
+        	})(r5);
+        }
+        if (r0 === null) {
+          pos = r1;
+        }
+        return r0;
+      }
+      
+      function parse_properties() {
         var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
         
         r1 = pos;
         r2 = pos;
-        r3 = parse_properties();
-        if (r3 === null) {
-          r3 = parse_property();
-        }
+        r3 = parse_property();
         if (r3 !== null) {
           r4 = [];
           r6 = pos;
           r7 = pos;
-          r8 = parse_isodent();
+          r8 = parse__();
           if (r8 !== null) {
-            r9 = parse_properties();
-            if (r9 === null) {
-              r9 = parse_property();
-            }
+            r9 = parse_property();
             if (r9 !== null) {
               r5 = [r8, r9];
             } else {
@@ -6967,12 +7180,9 @@ var generatedParser = (function(){
             r4.push(r5);
             r6 = pos;
             r7 = pos;
-            r8 = parse_isodent();
+            r8 = parse__();
             if (r8 !== null) {
-              r9 = parse_properties();
-              if (r9 === null) {
-                r9 = parse_property();
-              }
+              r9 = parse_property();
               if (r9 !== null) {
                 r5 = [r8, r9];
               } else {
@@ -7005,8 +7215,7 @@ var generatedParser = (function(){
           reportedPos = r1;
           r0 = (function(first, rest) {
         		rest.unshift(first)
-        		rest = _.flatten(rest)
-        		return N('propertyList', rest)
+        		return rest
         	})(r3, r4);
         }
         if (r0 === null) {
@@ -7015,494 +7224,212 @@ var generatedParser = (function(){
         return r0;
       }
       
-      function parse_predent() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
+      function parse_fontFace() {
+        var r0, r1, r2, r3, r4, r5;
         
         r1 = pos;
         r2 = pos;
-        r3 = parse__();
+        if (input.substr(pos, 10).toLowerCase() === "@font-face") {
+          r3 = input.substr(pos, 10);
+          pos += 10;
+        } else {
+          r3 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"@font-face\"");
+          }
+        }
         if (r3 !== null) {
-          r4 = [];
-          r6 = pos;
-          r7 = pos;
-          r8 = parse_nl();
-          if (r8 !== null) {
-            r9 = parse__();
-            if (r9 !== null) {
-              r5 = [r8, r9];
-            } else {
-              r5 = null;
-              pos = r7;
-            }
-          } else {
-            r5 = null;
-            pos = r7;
-          }
-          if (r5 !== null) {
-            reportedPos = r6;
-            r5 = (function(s) {return s})(r9);
-          }
-          if (r5 === null) {
-            pos = r6;
-          }
-          while (r5 !== null) {
-            r4.push(r5);
-            r6 = pos;
-            r7 = pos;
-            r8 = parse_nl();
-            if (r8 !== null) {
-              r9 = parse__();
-              if (r9 !== null) {
-                r5 = [r8, r9];
-              } else {
-                r5 = null;
-                pos = r7;
-              }
-            } else {
-              r5 = null;
-              pos = r7;
-            }
-            if (r5 !== null) {
-              reportedPos = r6;
-              r5 = (function(s) {return s})(r9);
-            }
-            if (r5 === null) {
-              pos = r6;
-            }
-          }
-          if (r4 !== null) {
-            r0 = [r3, r4];
-          } else {
-            r0 = null;
-            pos = r2;
-          }
-        } else {
-          r0 = null;
-          pos = r2;
-        }
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(indentedSpaces, lines) {
-        		if (lines.length)
-        			indentedSpaces = lines[lines.length - 1]
-        
-        		indentSizeStack.push(indentedSpaces.length)
-        	})(r3, r4);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
-        return r0;
-      }
-      
-      function parse_indent() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
-        
-        r1 = pos;
-        r2 = pos;
-        r3 = parse__();
-        if (r3 !== null) {
-          r6 = pos;
-          r7 = pos;
-          r8 = parse_nl();
-          if (r8 !== null) {
-            r9 = parse__();
-            if (r9 !== null) {
-              r5 = [r8, r9];
-            } else {
-              r5 = null;
-              pos = r7;
-            }
-          } else {
-            r5 = null;
-            pos = r7;
-          }
-          if (r5 !== null) {
-            reportedPos = r6;
-            r5 = (function(s) {return s})(r9);
-          }
-          if (r5 === null) {
-            pos = r6;
-          }
-          if (r5 !== null) {
-            r4 = [];
-            while (r5 !== null) {
-              r4.push(r5);
-              r6 = pos;
-              r7 = pos;
-              r8 = parse_nl();
-              if (r8 !== null) {
-                r9 = parse__();
-                if (r9 !== null) {
-                  r5 = [r8, r9];
-                } else {
-                  r5 = null;
-                  pos = r7;
-                }
-              } else {
-                r5 = null;
-                pos = r7;
-              }
-              if (r5 !== null) {
-                reportedPos = r6;
-                r5 = (function(s) {return s})(r9);
-              }
-              if (r5 === null) {
-                pos = r6;
-              }
-            }
-          } else {
-            r4 = null;
-          }
-          if (r4 !== null) {
-            r0 = [r3, r4];
-          } else {
-            r0 = null;
-            pos = r2;
-          }
-        } else {
-          r0 = null;
-          pos = r2;
-        }
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(lines) {
-        		var lastIndentSize = indentSizeStack[indentSizeStack.length - 1]
-        		var indentSize = lines[lines.length - 1].length
-        
-        		if (indentSize <= lastIndentSize) return null
-        		indentSizeStack.push(indentSize)
-        	})(r4);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
-        return r0;
-      }
-      
-      function parse_isodent() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
-        
-        r1 = pos;
-        r2 = pos;
-        r3 = parse__();
-        if (r3 !== null) {
-          r6 = pos;
-          r7 = pos;
-          r8 = parse_nl();
-          if (r8 !== null) {
-            r9 = parse__();
-            if (r9 !== null) {
-              r5 = [r8, r9];
-            } else {
-              r5 = null;
-              pos = r7;
-            }
-          } else {
-            r5 = null;
-            pos = r7;
-          }
-          if (r5 !== null) {
-            reportedPos = r6;
-            r5 = (function(s) {return s})(r9);
-          }
-          if (r5 === null) {
-            pos = r6;
-          }
-          if (r5 !== null) {
-            r4 = [];
-            while (r5 !== null) {
-              r4.push(r5);
-              r6 = pos;
-              r7 = pos;
-              r8 = parse_nl();
-              if (r8 !== null) {
-                r9 = parse__();
-                if (r9 !== null) {
-                  r5 = [r8, r9];
-                } else {
-                  r5 = null;
-                  pos = r7;
-                }
-              } else {
-                r5 = null;
-                pos = r7;
-              }
-              if (r5 !== null) {
-                reportedPos = r6;
-                r5 = (function(s) {return s})(r9);
-              }
-              if (r5 === null) {
-                pos = r6;
-              }
-            }
-          } else {
-            r4 = null;
-          }
-          if (r4 !== null) {
-            r0 = [r3, r4];
-          } else {
-            r0 = null;
-            pos = r2;
-          }
-        } else {
-          r0 = null;
-          pos = r2;
-        }
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(lines) {
-        		var lastIndentSize = indentSizeStack[indentSizeStack.length - 1]
-        		var indentSize = lines[lines.length - 1].length
-        
-        		if (indentSize > lastIndentSize)
-        			return null
-        
-        		if (indentSizeStack.length > 1) {
-        			var penultimateIndentSize = indentSizeStack[indentSizeStack.length - 2]
-        			if (indentSize <= penultimateIndentSize)
-        				return null
-        		}
-        	})(r4);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
-        return r0;
-      }
-      
-      function parse_outdent() {
-        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10;
-        
-        r1 = pos;
-        r2 = parse__();
-        if (r2 !== null) {
-          r3 = [];
-          r5 = pos;
-          r6 = parse_nl();
-          if (r6 !== null) {
-            r7 = parse__();
-            if (r7 !== null) {
-              r4 = [r6, r7];
-            } else {
-              r4 = null;
-              pos = r5;
-            }
-          } else {
-            r4 = null;
-            pos = r5;
-          }
-          while (r4 !== null) {
-            r3.push(r4);
-            r5 = pos;
-            r6 = parse_nl();
-            if (r6 !== null) {
-              r7 = parse__();
-              if (r7 !== null) {
-                r4 = [r6, r7];
-              } else {
-                r4 = null;
-                pos = r5;
-              }
-            } else {
-              r4 = null;
-              pos = r5;
-            }
-          }
-          if (r3 !== null) {
-            r4 = parse_eof();
-            if (r4 !== null) {
-              r0 = [r2, r3, r4];
-            } else {
-              r0 = null;
-              pos = r1;
-            }
-          } else {
-            r0 = null;
-            pos = r1;
-          }
-        } else {
-          r0 = null;
-          pos = r1;
-        }
-        if (r0 === null) {
-          r1 = pos;
-          reportFailures++;
-          r2 = pos;
-          r3 = pos;
           r4 = parse__();
           if (r4 !== null) {
-            r7 = pos;
-            r8 = pos;
-            r9 = parse_nl();
-            if (r9 !== null) {
-              r10 = parse__();
-              if (r10 !== null) {
-                r6 = [r9, r10];
-              } else {
-                r6 = null;
-                pos = r8;
-              }
-            } else {
-              r6 = null;
-              pos = r8;
-            }
-            if (r6 !== null) {
-              reportedPos = r7;
-              r6 = (function(s) {return s})(r10);
-            }
-            if (r6 === null) {
-              pos = r7;
-            }
-            if (r6 !== null) {
-              r5 = [];
-              while (r6 !== null) {
-                r5.push(r6);
-                r7 = pos;
-                r8 = pos;
-                r9 = parse_nl();
-                if (r9 !== null) {
-                  r10 = parse__();
-                  if (r10 !== null) {
-                    r6 = [r9, r10];
-                  } else {
-                    r6 = null;
-                    pos = r8;
-                  }
-                } else {
-                  r6 = null;
-                  pos = r8;
-                }
-                if (r6 !== null) {
-                  reportedPos = r7;
-                  r6 = (function(s) {return s})(r10);
-                }
-                if (r6 === null) {
-                  pos = r7;
-                }
-              }
-            } else {
-              r5 = null;
-            }
+            r5 = parse_propertyList();
             if (r5 !== null) {
-              r0 = [r4, r5];
+              r0 = [r3, r4, r5];
             } else {
               r0 = null;
-              pos = r3;
+              pos = r2;
             }
           } else {
             r0 = null;
-            pos = r3;
-          }
-          if (r0 !== null) {
-            reportedPos = r2;
-            r0 = (function(lines) {
-          		var penultimateIndentSize = indentSizeStack[indentSizeStack.length - 2]
-          		var indentSize = lines[lines.length - 1].length
-          
-          		if (indentSize > penultimateIndentSize)
-          			return null
-          
-          		indentSizeStack.pop()
-          	})(r5);
-          }
-          if (r0 === null) {
             pos = r2;
           }
-          reportFailures--;
-          if (r0 !== null) {
-            r0 = "";
-            pos = r1;
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(propertyList) {
+        		return N('fontFace', [propertyList])
+        	})(r5);
+        }
+        if (r0 === null) {
+          pos = r1;
+        }
+        return r0;
+      }
+      
+      function parse_charset() {
+        var r0, r1, r2, r3, r4, r5, r6, r7;
+        
+        r1 = pos;
+        r2 = pos;
+        if (input.substr(pos, 8).toLowerCase() === "@charset") {
+          r3 = input.substr(pos, 8);
+          pos += 8;
+        } else {
+          r3 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"@charset\"");
+          }
+        }
+        if (r3 !== null) {
+          r4 = parse__();
+          if (r4 !== null) {
+            r5 = parse_string();
+            if (r5 !== null) {
+              r6 = parse__();
+              if (r6 !== null) {
+                r7 = parse_semicolon();
+                if (r7 !== null) {
+                  r0 = [r3, r4, r5, r6, r7];
+                } else {
+                  r0 = null;
+                  pos = r2;
+                }
+              } else {
+                r0 = null;
+                pos = r2;
+              }
+            } else {
+              r0 = null;
+              pos = r2;
+            }
           } else {
             r0 = null;
+            pos = r2;
           }
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(value) {
+        		return N('charset', [value])
+        	})(r5);
+        }
+        if (r0 === null) {
+          pos = r1;
         }
         return r0;
       }
       
       function parse__() {
-        var r0, r1;
+        var r0;
         
-        r1 = pos;
         r0 = parse_s();
         r0 = r0 !== null ? r0 : "";
-        if (r0 !== null) {
-          reportedPos = r1;
-          r0 = (function(s) {
-        		return s
-        	})(r0);
-        }
-        if (r0 === null) {
-          pos = r1;
-        }
         return r0;
       }
       
       function parse_s() {
-        var r0, r1, r2, r3, r4, r5;
+        var r0, r1;
         
-        r1 = pos;
-        r2 = [];
-        if (/^[ \t]/.test(input.charAt(pos))) {
-          r3 = input.charAt(pos);
-          pos++;
-        } else {
-          r3 = null;
-          if (reportFailures === 0) {
-            matchFailed("[ \\t]");
+        r1 = parse_ws();
+        if (r1 === null) {
+          r1 = parse_singleLineComment();
+          if (r1 === null) {
+            r1 = parse_multiLineComment();
           }
         }
-        while (r3 !== null) {
-          r2.push(r3);
-          if (/^[ \t]/.test(input.charAt(pos))) {
-            r3 = input.charAt(pos);
-            pos++;
-          } else {
-            r3 = null;
-            if (reportFailures === 0) {
-              matchFailed("[ \\t]");
+        if (r1 !== null) {
+          r0 = [];
+          while (r1 !== null) {
+            r0.push(r1);
+            r1 = parse_ws();
+            if (r1 === null) {
+              r1 = parse_singleLineComment();
+              if (r1 === null) {
+                r1 = parse_multiLineComment();
+              }
             }
+          }
+        } else {
+          r0 = null;
+        }
+        return r0;
+      }
+      
+      function parse_ws() {
+        var r0, r1;
+        
+        if (/^[ \t\r\n\f]/.test(input.charAt(pos))) {
+          r1 = input.charAt(pos);
+          pos++;
+        } else {
+          r1 = null;
+          if (reportFailures === 0) {
+            matchFailed("[ \\t\\r\\n\\f]");
+          }
+        }
+        if (r1 !== null) {
+          r0 = [];
+          while (r1 !== null) {
+            r0.push(r1);
+            if (/^[ \t\r\n\f]/.test(input.charAt(pos))) {
+              r1 = input.charAt(pos);
+              pos++;
+            } else {
+              r1 = null;
+              if (reportFailures === 0) {
+                matchFailed("[ \\t\\r\\n\\f]");
+              }
+            }
+          }
+        } else {
+          r0 = null;
+        }
+        return r0;
+      }
+      
+      function parse_singleLineComment() {
+        var r0, r1, r2, r3, r4;
+        
+        r1 = pos;
+        if (input.substr(pos, 2) === "//") {
+          r2 = "//";
+          pos += 2;
+        } else {
+          r2 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"//\"");
           }
         }
         if (r2 !== null) {
-          if (input.substr(pos, 2) === "//") {
-            r3 = "//";
-            pos += 2;
+          r3 = [];
+          if (/^[^\r\n\f]/.test(input.charAt(pos))) {
+            r4 = input.charAt(pos);
+            pos++;
           } else {
-            r3 = null;
+            r4 = null;
             if (reportFailures === 0) {
-              matchFailed("\"//\"");
+              matchFailed("[^\\r\\n\\f]");
             }
           }
-          if (r3 !== null) {
-            r4 = [];
+          while (r4 !== null) {
+            r3.push(r4);
             if (/^[^\r\n\f]/.test(input.charAt(pos))) {
-              r5 = input.charAt(pos);
+              r4 = input.charAt(pos);
               pos++;
             } else {
-              r5 = null;
+              r4 = null;
               if (reportFailures === 0) {
                 matchFailed("[^\\r\\n\\f]");
               }
             }
-            while (r5 !== null) {
-              r4.push(r5);
-              if (/^[^\r\n\f]/.test(input.charAt(pos))) {
-                r5 = input.charAt(pos);
-                pos++;
-              } else {
-                r5 = null;
-                if (reportFailures === 0) {
-                  matchFailed("[^\\r\\n\\f]");
-                }
-              }
-            }
-            if (r4 !== null) {
-              r0 = [r2, r3, r4];
-            } else {
-              r0 = null;
-              pos = r1;
-            }
+          }
+          if (r3 !== null) {
+            r0 = [r2, r3];
           } else {
             r0 = null;
             pos = r1;
@@ -7511,47 +7438,146 @@ var generatedParser = (function(){
           r0 = null;
           pos = r1;
         }
-        if (r0 === null) {
-          r1 = pos;
-          r2 = pos;
-          if (/^[ \t]/.test(input.charAt(pos))) {
-            r3 = input.charAt(pos);
+        return r0;
+      }
+      
+      function parse_multiLineComment() {
+        var r0, r1, r2, r3, r4, r5, r6, r7, r8, r9;
+        
+        r1 = pos;
+        r2 = pos;
+        if (input.substr(pos, 2) === "/*") {
+          r3 = "/*";
+          pos += 2;
+        } else {
+          r3 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"/*\"");
+          }
+        }
+        if (r3 !== null) {
+          r5 = pos;
+          r4 = [];
+          if (/^[^*]/.test(input.charAt(pos))) {
+            r6 = input.charAt(pos);
             pos++;
           } else {
-            r3 = null;
+            r6 = null;
             if (reportFailures === 0) {
-              matchFailed("[ \\t]");
+              matchFailed("[^*]");
             }
           }
-          if (r3 !== null) {
-            r0 = [];
-            while (r3 !== null) {
-              r0.push(r3);
-              if (/^[ \t]/.test(input.charAt(pos))) {
-                r3 = input.charAt(pos);
+          if (r6 === null) {
+            r7 = pos;
+            if (input.charCodeAt(pos) === 42) {
+              r8 = "*";
+              pos++;
+            } else {
+              r8 = null;
+              if (reportFailures === 0) {
+                matchFailed("\"*\"");
+              }
+            }
+            if (r8 !== null) {
+              if (/^[^\/]/.test(input.charAt(pos))) {
+                r9 = input.charAt(pos);
                 pos++;
               } else {
-                r3 = null;
+                r9 = null;
                 if (reportFailures === 0) {
-                  matchFailed("[ \\t]");
+                  matchFailed("[^\\/]");
                 }
               }
+              if (r9 !== null) {
+                r6 = [r8, r9];
+              } else {
+                r6 = null;
+                pos = r7;
+              }
+            } else {
+              r6 = null;
+              pos = r7;
+            }
+          }
+          while (r6 !== null) {
+            r4.push(r6);
+            if (/^[^*]/.test(input.charAt(pos))) {
+              r6 = input.charAt(pos);
+              pos++;
+            } else {
+              r6 = null;
+              if (reportFailures === 0) {
+                matchFailed("[^*]");
+              }
+            }
+            if (r6 === null) {
+              r7 = pos;
+              if (input.charCodeAt(pos) === 42) {
+                r8 = "*";
+                pos++;
+              } else {
+                r8 = null;
+                if (reportFailures === 0) {
+                  matchFailed("\"*\"");
+                }
+              }
+              if (r8 !== null) {
+                if (/^[^\/]/.test(input.charAt(pos))) {
+                  r9 = input.charAt(pos);
+                  pos++;
+                } else {
+                  r9 = null;
+                  if (reportFailures === 0) {
+                    matchFailed("[^\\/]");
+                  }
+                }
+                if (r9 !== null) {
+                  r6 = [r8, r9];
+                } else {
+                  r6 = null;
+                  pos = r7;
+                }
+              } else {
+                r6 = null;
+                pos = r7;
+              }
+            }
+          }
+          if (r4 !== null) {
+            r4 = input.substring(pos, r5);
+          }
+          if (r4 !== null) {
+            if (input.substr(pos, 2) === "*/") {
+              r5 = "*/";
+              pos += 2;
+            } else {
+              r5 = null;
+              if (reportFailures === 0) {
+                matchFailed("\"*/\"");
+              }
+            }
+            if (r5 !== null) {
+              r0 = [r3, r4, r5];
+            } else {
+              r0 = null;
+              pos = r2;
             }
           } else {
             r0 = null;
+            pos = r2;
           }
-          if (r0 !== null) {
-            r0 = input.substring(pos, r2);
-          }
-          if (r0 !== null) {
-            reportedPos = r1;
-            r0 = (function(s) {
-          		return s
-          	})(r0);
-          }
-          if (r0 === null) {
-            pos = r1;
-          }
+        } else {
+          r0 = null;
+          pos = r2;
+        }
+        if (r0 !== null) {
+          reportedPos = r1;
+          r0 = (function(value) {
+        		return value
+        	})(r4);
+        }
+        if (r0 === null) {
+          pos = r1;
         }
         return r0;
       }
@@ -7582,30 +7608,6 @@ var generatedParser = (function(){
         return r0;
       }
       
-      function parse_eof() {
-        var r0, r1;
-        
-        r1 = pos;
-        reportFailures++;
-        if (input.length > pos) {
-          r0 = input.charAt(pos);
-          pos++;
-        } else {
-          r0 = null;
-          if (reportFailures === 0) {
-            matchFailed("any character");
-          }
-        }
-        reportFailures--;
-        if (r0 === null) {
-          r0 = "";
-        } else {
-          r0 = null;
-          pos = r1;
-        }
-        return r0;
-      }
-      
       
       function cleanupExpected(expected) {
         expected.sort();
@@ -7622,7 +7624,6 @@ var generatedParser = (function(){
       }
       
       
-      	var indentSizeStack = []
       	var N = function() {
       		var node = Node.apply(this, arguments)
       
@@ -7721,7 +7722,7 @@ var generatedParser = (function(){
 var parser = {}
 
 parser.parse = function(input, options) {
-	var filePath = options.filePath || ''
+	var filePath = options.filePath || defaults.filePath
 
 	try {
 		var ast = generatedParser.parse(input, {
@@ -7763,9 +7764,6 @@ parser.parse = function(input, options) {
  * Visitor
  *
  * Visit each node in the ast.
- *
- * Other modules are expected to have Visitor.prototype in their prototype chain
- * to inherit its methods.
  */
 var Visitor = function() {}
 
@@ -7859,10 +7857,9 @@ loader.load = function(url, callback, context) {
 var Importer = function() {}
 
 Importer.prototype = new Visitor()
-Importer.prototype.constructor = Importer
 
 Importer.prototype.import = function(ast, options, callback) {
-	this.imports = options.imports || (options.imports = {})
+	this.imports = options.imports || (options.imports = defaults.imports)
 	this.imported = {}
 	this.ast = ast
 	this.callback = callback
@@ -7909,10 +7906,10 @@ Importer.prototype.visitImport = function(importNode) {
 		return
 
 	var filePath = urlNode.children[0]
-	if (/^\w+:\/\/|\.css$/.test(filePath))
+	if (/^\w+:\/\//.test(filePath))
 		return
 
-	if (!/\.roo$/.test(filePath))
+	if (!/\.[a-z]+$/i.test(filePath))
 		filePath += '.roo'
 
 	filePath = _.joinPaths(_.dirname(this.filePath), filePath)
@@ -7984,13 +7981,10 @@ Scope.prototype.remove = function() {
 }
 
 Scope.prototype.define = function(name, value) {
-	name = name.toLowerCase()
 	this.scopes[this.scopes.length - 1][name] = value
 }
 
 Scope.prototype.resolve = function(name) {
-	name = name.toLowerCase()
-
 	var length = this.scopes.length
 	var value
 
@@ -8009,7 +8003,6 @@ Scope.prototype.resolve = function(name) {
 var Evaluator = function() {}
 
 Evaluator.prototype = new Visitor()
-Evaluator.prototype.constructor = Evaluator
 
 Evaluator.prototype.evaluate = function(ast) {
 	this.scope = new Scope()
@@ -8162,7 +8155,7 @@ Evaluator.prototype.visitRange = function(rangeNode) {
 	this.visit(rangeNode.children)
 
 	var fromNode = rangeNode.children[0]
-	var toNode = rangeNode.children[1]
+	var toNode = rangeNode.children[2]
 
 	var invalidNode
 	if (Node.toNumber(fromNode) === null)
@@ -8297,7 +8290,6 @@ Evaluator.prototype.visitArithmeticExpression = function(arithmeticExpressionNod
 
 	case 'number + percentage':
 	case 'number + dimension':
-	case 'number + identifier':
 	case 'number + string':
 	case 'boolean + identifier':
 	case 'boolean + string':
@@ -8628,7 +8620,6 @@ evaluator.evaluate = function(ast, options) {
 var Extender = function() {}
 
 Extender.prototype = new Visitor()
-Extender.prototype.constructor = Extender
 
 Extender.prototype.extend = function(ast) {
 	return this.visit(ast)
@@ -8654,113 +8645,105 @@ Extender.prototype.visitRoot = function(rootNode) {
 Extender.prototype.visitRuleset = function(rulesetNode) {
 	var selectorListNode = this.visit(rulesetNode.children[0])
 
-	var parentSelectorList = this.parentSelectorList
-	this.parentSelectorList = selectorListNode
+	var parentSelectors = this.parentSelectors
+	this.parentSelectors = selectorListNode.children
 
 	this.visit(rulesetNode.children[1])
 
-	this.parentSelectorList = parentSelectorList
+	this.parentSelectors = parentSelectors
 }
 
 Extender.prototype.visitSelectorList = function(selectorListNode) {
-	selectorListNode.originalNode = Node.clone(selectorListNode)
+	var selectorListClone = Node.clone(selectorListNode, false)
+	selectorListClone.children = selectorListNode.children
+	selectorListNode.originalNode = selectorListClone
 
-	var parentSelectorList = this.parentSelectorList
-
-	if (parentSelectorList) {
-		var length = parentSelectorList.children.length
-		var children = []
-
-		parentSelectorList.children.forEach(function(parentSelector, i) {
+	var selectors = []
+	if (this.parentSelectors) {
+		this.parentSelectors.forEach(function(parentSelector) {
 			this.parentSelector = parentSelector
 
-			var selectorListClone = i === length - 1 ? selectorListNode : Node.clone(selectorListNode)
-			selectorListClone.children.forEach(function(selectorNode) {
-				children.push(this.visit(selectorNode))
+			selectorListNode.children.forEach(function(selectorNode) {
+				selectors.push(this.visit(selectorNode))
 			}, this)
 		}, this)
-
-		selectorListNode.children = children
 	} else {
-		this.parentSelector = null
-		this.visit(selectorListNode.children)
+		this.parentSelector = ''
+		selectorListNode.children.forEach(function(selectorNode) {
+			selectors.push(this.visit(selectorNode))
+		}, this)
 	}
+
+	selectorListNode.children = selectors
 }
 
 Extender.prototype.visitSelector = function(selectorNode) {
 	var hasAmpersandSelector = false
-	var children = []
-	selectorNode.children.forEach(function(childNode) {
+	var startWithCombinator = false
+
+	var selector = ''
+	selectorNode.children.forEach(function(childNode, i) {
 		switch (childNode.type) {
 		case 'ampersandSelector':
-			if (!this.parentSelector)
-				throw Err("& selector is not allowed at the top level", childNode, this.filePath)
-
 			hasAmpersandSelector = true
-			children = children.concat(this.parentSelector.children)
+			selector += this.parentSelector
 			break
 		case 'combinator':
-			var length = children.length
-			if (length) {
-				var last = children[length - 1]
-				if (last.type === 'combinator')
-					children.pop()
-			}
+			if (!i)
+				startWithCombinator = true
+
 			// fall through
 		default:
-			children.push(childNode)
+			selector += compiler.compile(childNode)
 		}
 	}, this)
 
-	var first = children[0]
-	if (first.type === 'combinator') {
-		if (this.parentSelector)
-			children = this.parentSelector.children.concat(children)
-	} else if (!hasAmpersandSelector && this.parentSelector) {
-		var combinator = Node('combinator', [' '], {loc: selectorNode.loc})
-		children = this.parentSelector.children.concat(combinator, children)
-	}
+	if (hasAmpersandSelector)
+		return selector
 
-	selectorNode.children = children
+	if (startWithCombinator)
+		return this.parentSelector + selector
+
+	var parentSelector = this.parentSelector
+	if (parentSelector) parentSelector += ' '
+	return  parentSelector + selector
 }
 
 Extender.prototype.visitMedia = function(mediaNode) {
 	var mediaQueryListNode = this.visit(mediaNode.children[0])
 
-	var parentMediaQueryList = this.parentMediaQueryList
-	this.parentMediaQueryList = mediaQueryListNode
+	var parentMediaQueries = this.parentMediaQueries
+	this.parentMediaQueries = mediaQueryListNode.children
 
 	this.visit(mediaNode.children[1])
 
-	this.parentMediaQueryList = parentMediaQueryList
+	this.parentMediaQueries = parentMediaQueries
 }
 
 Extender.prototype.visitMediaQueryList = function(mediaQueryListNode) {
-	var parentMediaQueryList = this.parentMediaQueryList
+	if (this.parentMediaQueries) {
+		var parentMediaQueries = []
 
-	if (parentMediaQueryList) {
-		var length = parentMediaQueryList.children.length
-		var children = []
-
-		parentMediaQueryList.children.forEach(function(parentMediaQuery, i) {
+		this.parentMediaQueries.forEach(function(parentMediaQuery) {
 			this.parentMediaQuery = parentMediaQuery
 
-			var mediaQueryListClone = i === length - 1 ? mediaQueryListNode : Node.clone(mediaQueryListNode)
-			mediaQueryListClone.children.forEach(function(selectorNode) {
-				children.push(this.visit(selectorNode))
+			mediaQueryListNode.children.forEach(function(mediaQueryNode) {
+				parentMediaQueries.push(this.visit(mediaQueryNode))
 			}, this)
 		}, this)
 
-		mediaQueryListNode.children = children
+		mediaQueryListNode.children = parentMediaQueries
 	} else {
-		this.parentMediaQuery = null
+		this.parentMediaQuery = ''
 		this.visit(mediaQueryListNode.children)
 	}
 }
 
 Extender.prototype.visitMediaQuery = function(mediaQueryNode) {
-	if (this.parentMediaQuery)
-		mediaQueryNode.children = this.parentMediaQuery.children.concat(mediaQueryNode.children)
+	var mediaQuery = compiler.compile(mediaQueryNode)
+	var parentMediaQuery = this.parentMediaQuery
+	if (parentMediaQuery) parentMediaQuery += ' and '
+	return parentMediaQuery + mediaQuery
 }
 
 Extender.prototype.visitExtend = function(extendNode) {
@@ -8770,24 +8753,19 @@ Extender.prototype.visitExtend = function(extendNode) {
 		insideVoid: !!this.parentVoid
 	}
 
-	var parentMediaQueryList = this.parentMediaQueryList
-	if (parentMediaQueryList) {
-		var mediaNodes = new MediaFilter().filter(nodes, parentMediaQueryList, options)
+	if (this.parentMediaQueries) {
+		var mediaNodes = new MediaFilter().filter(nodes, this.parentMediaQueries, options)
 		nodes = []
 		mediaNodes.forEach(function(mediaNode) {
 			nodes = nodes.concat(mediaNode.children)
 		})
 	}
 
-	var parentSelectorList = this.parentSelectorList
 	var selectorListNode = extendNode.children[0]
 	selectorListNode.children.forEach(function(selectorNode) {
-		var rulesetNodes = new RulesetFilter().filter(nodes, selectorNode, options)
-
-		rulesetNodes.forEach(function(rulesetNode) {
-			new RulesetExtender().extend(rulesetNode, parentSelectorList, options)
-		})
-	})
+		selectorNode = compiler.compile(selectorNode)
+		new RulesetExtender().extend(nodes, selectorNode, this.parentSelectors, options)
+	}, this)
 
 	return null
 }
@@ -8808,18 +8786,16 @@ Extender.prototype.visitVoid = function(voidNode) {
 /**
  * Media Filter
  *
- * Find media nodes existing before the passed extend node
- * and matching the passed media query list node.
+ * Find medias matching the passed media queries
  */
 var MediaFilter = function() {}
 
 MediaFilter.stop = {}
 
 MediaFilter.prototype = new Visitor()
-MediaFilter.prototype.constructor = MediaFilter
 
-MediaFilter.prototype.filter = function(ast, mediaQueryListNode, options) {
-	this.mediaQueryListNode = mediaQueryListNode
+MediaFilter.prototype.filter = function(ast, mediaQueries, options) {
+	this.mediaQueries = mediaQueries
 	this.mediaNodes = []
 
 	try {
@@ -8841,99 +8817,44 @@ MediaFilter.prototype.visitNode = _.noop
 
 MediaFilter.prototype.visitMedia = function(mediaNode) {
 	var mediaQueryListNode = mediaNode.children[0]
+	var mediaQueries = mediaQueryListNode.children
 	var ruleListNode = mediaNode.children[1]
 
-	if (mediaQueryListNode === this.mediaQueryListNode) {
+	if (mediaQueries === this.mediaQueries) {
 		this.mediaNodes.push(mediaNode)
 		throw MediaFilter.stop
 	}
 
-	if (Node.equal(mediaQueryListNode, this.mediaQueryListNode))
+	if (Node.equal(mediaQueries, this.mediaQueries))
 		this.mediaNodes.push(mediaNode)
 	else
 		this.visit(ruleListNode)
 }
 
 /**
- * Media Filter
- *
- * Find ruleset nodes existing before the passed extend node
- * and matching the passed selector node
- */
-var RulesetFilter = function() {}
-
-RulesetFilter.stop = {}
-
-RulesetFilter.prototype = new Visitor()
-RulesetFilter.prototype.constructor = RulesetFilter
-
-RulesetFilter.prototype.filter = function(ast, selectorNode, options) {
-	this.selectorNode = selectorNode
-	this.extendNode = options.extendNode
-	this.rulesetNodes = []
-
-	try {
-		this.visit(ast)
-	} catch (error) {
-		if (error !== RulesetFilter.stop)
-			throw error
-	}
-
-	return this.rulesetNodes
-}
-
-RulesetFilter.prototype.visitRoot =
-RulesetFilter.prototype.visitVoid =
-RulesetFilter.prototype.visitRuleList = RulesetFilter.prototype.visitNode
-
-RulesetFilter.prototype.visitNode = _.noop
-
-RulesetFilter.prototype.visitExtend = function(extendNode) {
-	if (extendNode === this.extendNode)
-		throw RulesetFilter.stop
-}
-
-RulesetFilter.prototype.visitRuleset = function(rulesetNode) {
-	var selectorListNode = rulesetNode.children[0]
-
-	var matchSelector = selectorListNode.children.some(function(selectorNode) {
-		return Node.equal(selectorNode, this.selectorNode)
-	}, this)
-
-	if (matchSelector) {
-		this.rulesetNodes.push(rulesetNode)
-	} else {
-		var ruleListNode = rulesetNode.children[1]
-		this.visit(ruleListNode)
-	}
-}
-
-/**
  * Selector Extender
  *
- * Extend all selectors exsiting before the passed extend node with
- * the passed selector list node
+ * Extend passed rulesets with the passed parent selectors
  */
-var RulesetExtender = function() {}
+var SelectorExtender = function() {}
 
-RulesetExtender.stop = {}
+SelectorExtender.stop = {}
 
-RulesetExtender.prototype = new Visitor()
-RulesetExtender.prototype.constructor = RulesetExtender
+SelectorExtender.prototype = new Visitor()
 
-RulesetExtender.prototype.extend = function(rulesetNode, parentSelectorList, options) {
-	this.parentSelectorList = parentSelectorList
+SelectorExtender.prototype.extend = function(rulesetNode, parentSelectors, options) {
+	this.parentSelectors = parentSelectors
 	this.extendNode = options.extendNode
 	this.insideVoid = options.insideVoid
 
 	var selectorListNode = rulesetNode.children[0]
-	selectorListNode.children = selectorListNode.children.concat(parentSelectorList.children)
+	selectorListNode.children = selectorListNode.children.concat(parentSelectors)
 
 	if (!this.insideVoid) {
 		if (!selectorListNode.extendedSelectors)
-			selectorListNode.extendedSelectors = parentSelectorList.children
+			selectorListNode.extendedSelectors = parentSelectors
 		else
-			selectorListNode.extendedSelectors = selectorListNode.extendedSelectors.concat(parentSelectorList.children)
+			selectorListNode.extendedSelectors = selectorListNode.extendedSelectors.concat(parentSelectors)
 	}
 
 	var ruleListNode = rulesetNode.children[1]
@@ -8941,39 +8862,39 @@ RulesetExtender.prototype.extend = function(rulesetNode, parentSelectorList, opt
 	try {
 		this.visit(ruleListNode)
 	} catch (error) {
-		if (error !== RulesetExtender.stop)
+		if (error !== SelectorExtender.stop)
 			throw error
 	}
 }
 
-RulesetExtender.prototype.visitRoot =
-RulesetExtender.prototype.visitMedia =
-RulesetExtender.prototype.visitRuleList = RulesetExtender.prototype.visitNode
+SelectorExtender.prototype.visitRoot =
+SelectorExtender.prototype.visitMedia =
+SelectorExtender.prototype.visitRuleList = SelectorExtender.prototype.visitNode
 
-RulesetExtender.prototype.visitNode = _.noop
+SelectorExtender.prototype.visitNode = _.noop
 
-RulesetExtender.prototype.visitExtend = function(extendNode) {
+SelectorExtender.prototype.visitExtend = function(extendNode) {
 	if (extendNode === this.extendNode)
-		throw RulesetExtender.stop
+		throw SelectorExtender.stop
 }
 
-RulesetExtender.prototype.visitRuleset = function(rulesetNode) {
+SelectorExtender.prototype.visitRuleset = function(rulesetNode) {
 	var selectorListNode = this.visit(rulesetNode.children[0])
 
-	var parentSelectorList = this.parentSelectorList
-	this.parentSelectorList = selectorListNode
+	var parentSelectors = this.parentSelectors
+	this.parentSelectors = selectorListNode.children
 
 	var ruleListNode = rulesetNode.children[1]
 	this.visit(ruleListNode)
 
-	this.parentSelectorList = parentSelectorList
+	this.parentSelectors = parentSelectors
 }
 
-RulesetExtender.prototype.visitSelectorList = function(selectorListNode) {
-	var selectorListClone = Node.clone(selectorListNode.originalNode)
+SelectorExtender.prototype.visitSelectorList = function(selectorListNode) {
+	var selectorListClone = Node.clone(selectorListNode.originalNode, false)
 
 	var extender = new Extender()
-	extender.parentSelectorList = this.parentSelectorList
+	extender.parentSelectors = this.parentSelectors
 	selectorListClone = extender.extend(selectorListClone, this.options)
 
 	selectorListNode.children = selectorListNode.children.concat(selectorListClone.children)
@@ -8986,6 +8907,71 @@ RulesetExtender.prototype.visitSelectorList = function(selectorListNode) {
 	}
 
 	return selectorListClone
+}
+
+/**
+ * Ruleset Extender
+ *
+ * Find ruleset node matching the passed selector and extend them with the
+ * passed parent selectors
+ */
+var RulesetExtender = function() {}
+
+RulesetExtender.stop = {}
+
+RulesetExtender.prototype = new Visitor()
+
+RulesetExtender.prototype.extend = function(ast, selectorNode, parentSelectors, options) {
+	this.parentSelectors = parentSelectors
+	this.selectorNode = selectorNode
+	this.extendNode = options.extendNode
+	this.options = options
+
+	try {
+		this.visit(ast)
+	} catch (error) {
+		if (error !== RulesetExtender.stop)
+			throw error
+	}
+}
+
+RulesetExtender.prototype.visitRoot =
+RulesetExtender.prototype.visitVoid =
+RulesetExtender.prototype.visitRuleList = RulesetExtender.prototype.visitNode
+
+RulesetExtender.prototype.visitNode = _.noop
+
+RulesetExtender.prototype.visitExtend = function(extendNode) {
+	if (extendNode === this.extendNode)
+		throw RulesetExtender.stop
+}
+
+RulesetExtender.prototype.visitRuleset = function(rulesetNode) {
+	var selectorListNode = rulesetNode.children[0]
+
+	var selectorMatched = selectorListNode.children.some(function(selectorNode) {
+		if (this.extendNode.all) {
+			if (~selectorNode.indexOf(this.selectorNode)) {
+				var parentSelectors = []
+				this.parentSelectors.forEach(function(parentSelector) {
+					parentSelector = selectorNode.split(this.selectorNode).join(parentSelector)
+					parentSelectors.push(parentSelector)
+				}, this)
+
+				new SelectorExtender().extend(rulesetNode, parentSelectors, this.options)
+				return true
+			}
+		} else if (this.selectorNode === selectorNode) {
+			new SelectorExtender().extend(rulesetNode, this.parentSelectors, this.options)
+			return true
+		}
+	}, this)
+
+	if (selectorMatched)
+		return
+
+	var ruleListNode = rulesetNode.children[1]
+	this.visit(ruleListNode)
 }
 
 var extender = {}
@@ -9002,7 +8988,6 @@ extender.extend = function(ast, options) {
 var Normalizer = function() {}
 
 Normalizer.prototype = new Visitor()
-Normalizer.prototype.constructor = Normalizer
 
 Normalizer.prototype.normalize = function(ast) {
 	return this.visit(ast)
@@ -9164,20 +9149,15 @@ normalizer.normalize = function(ast, options) {
  */
 var Prefixer = function() {}
 
-Prefixer.defaults = {
-	prefixes: ['webkit', 'moz', 'ms', 'o']
-}
-
 Prefixer.prototype = new Visitor()
-Prefixer.prototype.constructor = Prefixer
 
 Prefixer.prototype.prefix = function(ast, options) {
-	this.prefixes = options.prefixes || Prefixer.defaults.prefixes
+	this.prefixes = options.prefix || defaults.prefix
+	this.skipPrefixed = options.skipPrefixed
 	return this.visit(ast)
 }
 
 Prefixer.prototype.visitRoot =
-Prefixer.prototype.visitPropertyList =
 Prefixer.prototype.visitRuleset =
 Prefixer.prototype.visitMedia =
 Prefixer.prototype.visitKeyframeList =
@@ -9197,6 +9177,7 @@ PropertyNamePrefixer.prototype = new Visitor()
 
 PropertyNamePrefixer.prototype.prefix = function(propertyNameNode, options) {
 	this.prefixes = options.prefixes
+	this.parentPropertyList = options.parentPropertyList
 
 	return this.visit(propertyNameNode)
 }
@@ -9227,10 +9208,19 @@ PropertyNamePrefixer.prototype.visitIdentifier = function(identifierNode) {
 	}
 
 	prefixes.forEach(function(prefix) {
+		var prefixedPropertyName = '-' + prefix + '-' + propertyName
+		if (this.parentPropertyList) {
+			if (this.parentPropertyList.children.some(function(propertyNode) {
+				var propertyNameNode = propertyNode.children[0]
+				var propertyName = propertyNameNode.children[0]
+				return prefixedPropertyName === propertyName
+			}))
+				return
+		}
 		var prefixedPropertyNameNode = Node.clone(identifierNode)
-		prefixedPropertyNameNode.children[0] = '-' + prefix + '-' + propertyName
+		prefixedPropertyNameNode.children[0] = prefixedPropertyName
 		prefixedPropertyNameNodes.push(prefixedPropertyNameNode)
-	})
+	}, this)
 
 	return prefixedPropertyNameNodes
 }
@@ -9347,7 +9337,8 @@ Prefixer.prototype.visitProperty = function(propertyNode) {
 
 	default:
 		var options = {
-			prefixes: this.prefixes
+			prefixes: this.prefixes,
+			parentPropertyList: this.parentPropertyList
 		}
 		var prefixedPropertyNameNodes = new PropertyNamePrefixer().prefix(propertyNameNode, options)
 
@@ -9363,6 +9354,19 @@ Prefixer.prototype.visitProperty = function(propertyNode) {
 
 	propertyNodes.push(propertyNode)
 	return propertyNodes
+}
+
+Prefixer.prototype.visitPropertyList = function(propertyListNode) {
+	if (this.skipPrefixed) {
+		var parentPropertyList = this.parentPropertyList
+		this.parentPropertyList = propertyListNode
+
+		this.visit(propertyListNode.children)
+
+		this.parentPropertyList = parentPropertyList
+	} else {
+		this.visit(propertyListNode.children)
+	}
 }
 
 Prefixer.prototype.visitKeyframes = function(keyframesNode) {
@@ -9406,18 +9410,12 @@ prefixer.prefix = function(ast, options) {
  */
 var Compiler = function() {}
 
-Compiler.defaults = {
-	indent: '\t',
-	precision: 3
-}
-
 Compiler.prototype = new Visitor()
-Compiler.prototype.constructor = Compiler
 
 Compiler.prototype.compile = function(ast, options) {
 	if (!options) options = {}
-	this.indentUnit = options.indent || Compiler.defaults.indent
-	this.precision = options.precision || Compiler.defaults.precision
+	this.indentUnit = options.indent || defaults.indent
+	this.precision = options.precision || defaults.precision
 	this.indentLevel = 0
 
 	return this.visit(ast)
@@ -9493,6 +9491,10 @@ Compiler.prototype.visitHashSelector = function(hashSelectorNode) {
 
 Compiler.prototype.visitAttributeSelector = function(attributeSelectorNode) {
 	return '[' + this.visit(attributeSelectorNode.children).join('') + ']'
+}
+
+Compiler.prototype.visitNegationSelector = function(negationSelectorNode) {
+	return ':not(' + this.visit(negationSelectorNode.children[0]) + ')'
 }
 
 Compiler.prototype.visitPseudoSelector = function(pseudoSelectorNode) {
@@ -9666,6 +9668,20 @@ Compiler.prototype.visitKeyframeSelectorList = function(keyframeSelectorListNode
 	return this.visit(keyframeSelectorListNode.children).join(', ')
 }
 
+Compiler.prototype.visitFontFace = function(fontFaceNode) {
+	var css = '@font-face {\n'
+	this.indent()
+	css += this.indentString() + this.visit(fontFaceNode.children[0])
+	this.outdent()
+	css += '\n' + this.indentString() + '}'
+
+	return css
+}
+
+Compiler.prototype.visitCharset = function(charsetNode) {
+	return '@charset ' + this.visit(charsetNode.children[0]) + ';'
+}
+
 var compiler = {}
 
 compiler.compile = function(ast, options) {
@@ -9675,7 +9691,7 @@ compiler.compile = function(ast, options) {
 /**
  * Formmatter
  *
- * Make error message contain input context
+ * Make error message contain input context.
  */
 var formatter = {}
 
@@ -9684,16 +9700,16 @@ formatter.format = function(error, input) {
 	if (input === undefined)
 		return message
 
-	var lineNumber = error.line - 1
-	var columnNumber = error.column - 1
+	var lineNumber = error.line
+	var columnNumber = error.column
 	var filePath = error.filePath
 	var lines = input.split(/\r\n|[\r\n]/)
 	var siblingLineSize = 4
-	var startLineNumber = Math.max(lineNumber - siblingLineSize, 0)
-	var endLineNumber = Math.min(lineNumber + siblingLineSize, lines.length - 1)
+	var startLineNumber = Math.max(lineNumber - siblingLineSize, 1)
+	var endLineNumber = Math.min(lineNumber + siblingLineSize, lines.length)
 	var maxLineNumberDigitCount = endLineNumber.toString().length
 
-	var context = lines.slice(startLineNumber, endLineNumber + 1).reduce(function(context, line, i) {
+	var context = lines.slice(startLineNumber - 1, endLineNumber).reduce(function(context, line, i) {
 		var tabCount = 0
 		line = line.replace(/^\t+/, function(tabs) {
 			tabCount = tabs.length
@@ -9705,16 +9721,16 @@ formatter.format = function(error, input) {
 
 		context += '  '
 		         + Array(maxLineNumberDigitCount - currentLineNumberDigitCount + 1).join(' ')
-		         + (currentLineNumber + 1)
+		         + currentLineNumber
 		         + '| '
 		         + line
 		         + '\n'
 
-		if (i === lineNumber)
+		if (i + startLineNumber === lineNumber)
 			context += '  '
 			         + Array(maxLineNumberDigitCount + 1).join('-')
 			         + '--'
-			         + Array(columnNumber + tabCount + 1).join('-')
+			         + Array(columnNumber + tabCount).join('-')
 			         + '^\n'
 
 		return context
@@ -9783,7 +9799,7 @@ roole.compile = function(input, options, callback) {
 }
 
 /**
- * Compile style and link elements in the HTML
+ * Compile style and link elements in the HTML.
  */
 var selector = 'link[rel="stylesheet/roole"],style[type="text/roole"]'
 var elements = document.querySelectorAll(selector)
@@ -9846,7 +9862,7 @@ function displayError(message) {
 	document.body.appendChild(errorElement)
 }
 
-roole.version = '0.2.1'
+roole.version = '0.3.0'
 
 return roole
 
