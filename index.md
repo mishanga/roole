@@ -3,7 +3,7 @@ Roole is a language that compiles to CSS.
 
 It drew many inspirations from other CSS preprocessing languages like [Sass](http://sass-lang.com/), [LESS](http://lesscss.org/) and [Stylus](http://learnboost.github.com/stylus/).
 
-The most unique feature of Roole is that it has vendor prefixing built-in, so the language stays dead simple yet being able to prefix some extremely complex rules transparently. Since Roole is also a superset of CSS, you can use it directly as a CSS prefixer
+The most unique feature of Roole is that it has vendor prefixing built-in, so the language stays dead simple yet being able to prefix some extremely complex rules transparently. Since Roole is also a superset of CSS, you can use it directly as a CSS prefixer.
 
 Roole is implemented in JavaScript, so it can be run both on the server side (via [node.js](http://nodejs.org/)) or in a browser ([run unit tests](test/) to check if Roole works in your browser).
 
