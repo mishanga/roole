@@ -336,7 +336,7 @@ WARNING: Currently only the first top-level multi-line comment will be preserved
 
 ### Variable
 
-Variables are case-insensitive. Their names start with `$` and are defined using assignments:
+Variables are case-sensitive. Their names start with `$` and are defined using assignments:
 
 ```roole
 $margin = 20px 0;
@@ -1437,6 +1437,4 @@ When properties are nested inside other rules which needs to be prefixed, Roole 
 
 ## Feedback
 
-You are encouraged to watch [the repo on GitHub](https://github.com/curvedmark/roole), and leave comments in [the issue tracker](https://github.com/curvedmark/roole/issues).
-
-You can also [open a new issue](https://github.com/curvedmark/roole/issues/new), but be sure to use the search function to make sure the issue is not already reported. -->
+You are encouraged to watch [the repo on GitHub](https://github.com/curvedmark/roole), and leave comments or open a new issue in [the issue tracker](https://github.com/curvedmark/roole/issues). Before opening a new one, use the search function to make sure the issue is not already reported.
