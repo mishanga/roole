@@ -1,5 +1,5 @@
 /*
- * Roole - A language that compiles to CSS v0.3.0
+ * Roole - A language that compiles to CSS v0.3.1
  * http://roole.org
  *
  * Copyright 2012 Glen Huang
@@ -8033,10 +8033,30 @@ Evaluator.prototype.visitRuleset = function(rulesetNode) {
 }
 
 Evaluator.prototype.visitSelector = function(selectorNode) {
-	var childNodes = this.visit(selectorNode.children)
+	var childNodes = []
 
-	if (this.interpolatingSelector)
-		return childNodes
+	selectorNode.children.forEach(function(childNode) {
+		childNode = this.visit(childNode)
+
+		// make sure not to result in two consecutive combinators
+		// which can happen when
+		//	$selector = '> div';
+		//	body $selector {}
+		if (Array.isArray(childNode)) {
+			if (
+				childNode[0].type === 'combinator' &&
+				childNodes.length &&
+				childNodes[childNodes.length - 1].type === 'combinator'
+			)
+				childNodes.pop()
+
+			childNodes = childNodes.concat(childNode)
+		} else {
+			childNodes.push(childNode)
+		}
+	}, this)
+
+	selectorNode.children = childNodes
 }
 
 Evaluator.prototype.visitSelectorInterpolation = function(selectorInterpolationNode) {
@@ -8065,11 +8085,7 @@ Evaluator.prototype.visitSelectorInterpolation = function(selectorInterpolationN
 		throw error
 	}
 
-	this.interpolatingSelector = true
-	selectorNode = this.visit(selectorNode)
-	this.interpolatingSelector = false
-
-	return selectorNode
+	return selectorNode.children
 }
 
 Evaluator.prototype.visitAssignment = function(assignmentNode) {
@@ -8668,7 +8684,7 @@ Extender.prototype.visitSelectorList = function(selectorListNode) {
 			}, this)
 		}, this)
 	} else {
-		this.parentSelector = ''
+		this.parentSelector = null
 		selectorListNode.children.forEach(function(selectorNode) {
 			selectors.push(this.visit(selectorNode))
 		}, this)
@@ -8685,12 +8701,19 @@ Extender.prototype.visitSelector = function(selectorNode) {
 	selectorNode.children.forEach(function(childNode, i) {
 		switch (childNode.type) {
 		case 'ampersandSelector':
+			if (!this.parentSelector)
+				throw Err("& selector is not allowed at the top level", childNode, this.filePath)
+
 			hasAmpersandSelector = true
 			selector += this.parentSelector
 			break
 		case 'combinator':
-			if (!i)
+			if (!i) {
+				if (!this.parentSelector)
+					throw Err("selector starting with a combinator is not allowed at the top level", childNode, this.filePath)
+
 				startWithCombinator = true
+			}
 
 			// fall through
 		default:
@@ -8704,9 +8727,7 @@ Extender.prototype.visitSelector = function(selectorNode) {
 	if (startWithCombinator)
 		return this.parentSelector + selector
 
-	var parentSelector = this.parentSelector
-	if (parentSelector) parentSelector += ' '
-	return  parentSelector + selector
+	return  this.parentSelector ? this.parentSelector + ' ' + selector : selector
 }
 
 Extender.prototype.visitMedia = function(mediaNode) {
@@ -9862,7 +9883,7 @@ function displayError(message) {
 	document.body.appendChild(errorElement)
 }
 
-roole.version = '0.3.0'
+roole.version = '0.3.1'
 
 return roole
 

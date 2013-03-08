@@ -143,6 +143,126 @@ test('nest selector list under selector', function() {
   return assert.compileTo('body div {\n	p, img {\n		width: auto;\n	}\n}', 'body div p,\nbody div img {\n	width: auto;\n}');
 });
 
+test('nest selector list containing & selector under selector', function() {
+  return assert.compileTo('body div {\n	&, img {\n		width: auto;\n	}\n}', 'body div,\nbody div img {\n	width: auto;\n}');
+});
+
+test('nest selector under selector list', function() {
+  return assert.compileTo('html, body {\n	div {\n		width: auto;\n	}\n}', 'html div,\nbody div {\n	width: auto;\n}');
+});
+
+test('nest & selector under selector list', function() {
+  return assert.compileTo('html, body {\n	& {\n		width: auto;\n	}\n}', 'html,\nbody {\n	width: auto;\n}');
+});
+
+test('nest selector containing & selector under selector list', function() {
+  return assert.compileTo('body, div {\n	html & {\n		width: auto;\n	}\n}', 'html body,\nhtml div {\n	width: auto;\n}');
+});
+
+test('nest selector starting with combinator under selector list', function() {
+  return assert.compileTo('body, div {\n	> p {\n		width: auto;\n	}\n}', 'body > p,\ndiv > p {\n	width: auto;\n}');
+});
+
+test('nest selector list under selector list', function() {
+  return assert.compileTo('html, body {\n	p, img {\n		width: auto;\n	}\n}', 'html p,\nhtml img,\nbody p,\nbody img {\n	width: auto;\n}');
+});
+
+test('nest selector list containing & selector under selector list', function() {
+  return assert.compileTo('html, body {\n	&, img {\n		width: auto;\n	}\n}', 'html,\nhtml img,\nbody,\nbody img {\n	width: auto;\n}');
+});
+
+test('nest selector list containing selector starting with combinator under selector list', function() {
+  return assert.compileTo('body, div {\n	> p, img {\n		width: auto;\n	}\n}', 'body > p,\nbody img,\ndiv > p,\ndiv img {\n	width: auto;\n}');
+});
+
+test('deeply nested selector', function() {
+  return assert.compileTo('html {\n	body {\n		div {\n			width: auto;\n		}\n	}\n}', 'html body div {\n	width: auto;\n}');
+});
+
+test('not allow & selector at the top level', function() {
+  return assert.failAt('& {\n	width: auto;\n}', 1, 1);
+});
+
+test('not allow selector starting with a combinator at the top level', function() {
+  return assert.failAt('> div {\n	width: auto;\n}', 1, 1);
+});
+
+test('not allow & selector at the top level', function() {
+  return assert.failAt('& {\n	width: auto;\n}', 1, 1);
+});
+
+test('interpolating selector', function() {
+  return assert.compileTo('$sel = \' body \';\n$sel {\n	width: auto;\n}', 'body {\n	width: auto;\n}');
+});
+
+test('not allow interpolating invalid selector', function() {
+  return assert.failAt('$sel = \'body #\';\n$sel {\n	width: auto;\n}', 2, 1);
+});
+
+test('not allow interpolating & selector at the top level', function() {
+  return assert.failAt('$sel = \'&\';\n$sel {\n	width: auto;\n}', 2, 1);
+});
+
+test('interpolating selector inside selector', function() {
+  return assert.compileTo('$sel = \'div \';\nbody $sel {\n	width: auto;\n}', 'body div {\n	width: auto;\n}');
+});
+
+test('interpolating selector staring with combinator inside selector', function() {
+  return assert.compileTo('$sel = \' >  div\';\nbody $sel {\n	width: auto;\n}', 'body > div {\n	width: auto;\n}');
+});
+
+test('not allow interpolating & selector inside selector at the top level', function() {
+  return assert.failAt('$sel = \'& div\';\nbody $sel {\n	width: auto;\n}', 2, 6);
+});
+
+test('interpolating selector containing & selector and nested under selector', function() {
+  return assert.compileTo('$sel = \'& div\';\nbody {\n	html $sel {\n		width: auto;\n	}\n}', 'html body div {\n	width: auto;\n}');
+});
+
+test('not allow interpolating selector list inside selector', function() {
+  return assert.failAt('$sel = \'div, p\';\nbody $sel {\n	width: auto;\n}', 2, 6);
+});
+
+test('interpolate identifier', function() {
+  return assert.compileTo('$sel = div;\n$sel {\n	width: auto;\n}', 'div {\n	width: auto;\n}');
+});
+
+test('universal selector', function() {
+  return assert.compileTo('* {\n	margin: 0;\n}', '* {\n	margin: 0;\n}');
+});
+
+test('attribute selector', function() {
+  return assert.compileTo('input[type=button] {\n	margin: 0;\n}', 'input[type=button] {\n	margin: 0;\n}');
+});
+
+test('attribute selector without value', function() {
+  return assert.compileTo('input[hidden] {\n	margin: 0;\n}', 'input[hidden] {\n	margin: 0;\n}');
+});
+
+test('pseudo selector', function() {
+  return assert.compileTo(':hover {\n	text-decoration: underline;\n}', ':hover {\n	text-decoration: underline;\n}');
+});
+
+test('double-colon pseudo selector', function() {
+  return assert.compileTo('a::before {\n	content: \' \';\n}', 'a::before {\n	content: \' \';\n}');
+});
+
+test('multi-line pseudo selector', function() {
+  return assert.compileTo('body {\n	a:hover,\n	span:hover {\n		text-decoration: underline;\n	}\n}', 'body a:hover,\nbody span:hover {\n	text-decoration: underline;\n}');
+});
+
+test('functional pseudo selector', function() {
+  return assert.compileTo('a:nth-child(2n+1) {\n	text-decoration: underline;\n}', 'a:nth-child(2n+1) {\n	text-decoration: underline;\n}');
+});
+
+test('functional pseudo selector with identifier', function() {
+  return assert.compileTo('a:nth-child(odd) {\n	text-decoration: underline;\n}', 'a:nth-child(odd) {\n	text-decoration: underline;\n}');
+});
+
+test('negation selector', function() {
+  return assert.compileTo('a:not(.link) {\n	text-decoration: none;\n}', 'a:not(.link) {\n	text-decoration: none;\n}');
+});
+
 suite('property');
 
 test('starred property', function() {
