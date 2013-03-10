@@ -1,7 +1,10 @@
-$clearfix = @mixin
-  &:before
-  &:after
-    content: ' '
-    display: table
-  &:after
-    clear: both
+$clearfix = @mixin {
+	&:before,
+	&:after {
+		content: ' ';
+		display: table;
+	}
+	&:after {
+		clear: both;
+	}
+};

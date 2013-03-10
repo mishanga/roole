@@ -1,8 +1,10 @@
-.code
-	border: 1px solid #eee
-	background-color: #fbfbfb
-	font-size: 14px
-	border-radius: 5px
+.code {
+	border: 1px solid #eee;
+	background-color: #fbfbfb;
+	font-size: 14px;
+	border-radius: 5px;
 
-	pre
-		margin: 1.5em
+	pre {
+		margin: 1.5em;
+	}
+}

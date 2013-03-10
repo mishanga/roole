@@ -1,35 +1,40 @@
-@import 'var'
-@import 'mixin'
+@import 'var';
+@import 'mixin';
 
-#nav
-	background: #000
-	position: fixed
-	top: 0
-	z-index: 100
-	width: 100%
-	max-width: $width
-	border-radius: 0 0 5px 5px
-	text-align: left
+#nav {
+	background: #000;
+	position: fixed;
+	top: 0;
+	z-index: 100;
+	width: 100%;
+	max-width: $width;
+	border-radius: 0 0 5px 5px;
+	text-align: left;
 
-	> ul
-		margin: 0
-		padding: 0
-		list-style: none
-		$clearfix()
+	> ul {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		$clearfix();
 
-		> li
-			float: left
-			font-size: 18px
-			text-transform: uppercase
+		> li {
+			float: left;
+			font-size: 18px;
+			text-transform: uppercase;
 
-			&.opposite
-				float: right
+			&.opposite {
+				float: right;
+			}
 
-			> a
-			> span
-				color: #fff
-				margin: 0
-				padding: 15px 20px
-				display: block
-				text-decoration: none
-				cursor: pointer
+			> a,
+			> span {
+				color: #fff;
+				margin: 0;
+				padding: 15px 20px;
+				display: block;
+				text-decoration: none;
+				cursor: pointer;
+			}
+		}
+	}
+}

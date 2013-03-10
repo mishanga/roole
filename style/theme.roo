@@ -1,34 +1,40 @@
-.cm-s-tomorrow
-	.cm-tab
-		border-left: 1px solid #f1f1f1
-		margin-left: -1px
+.cm-s-tomorrow {
+	.cm-tag,
+	.cm-attribute,
+	.cm-selector,
+	.cm-property {
+		color: #c82829;
+	}
 
-	.cm-tag
-	.cm-attribute
-	.cm-selector
-	.cm-property
-		color: #c82829
+	&.lang-roole,
+	&.lang-css {
+		.cm-property {
+			color: #C99E00;
+		}
+	}
 
-	&.lang-roole
-	&.lang-css
-		.cm-property
-			color: #C99E00
+	.cm-value {
+		color: #F5871F;
+	}
 
-	.cm-value
-		color: #F5871F
+	.cm-string {
+		color: #718c00;
+	}
 
-	.cm-string
-		color: #718c00
+	.cm-at-rule {
+		color: #8959a8;
+	}
 
-	.cm-at-rule
-		color: #8959a8
+	.cm-operator,
+	.cm-function {
+		color: #3e999f;
+	}
 
-	.cm-operator
-	.cm-function
-		color: #3e999f
+	&.lang-roole .cm-variable {
+		color: #4271ae;
+	}
 
-	&.lang-roole .cm-variable
-		color: #4271ae
-
-	.cm-comment
-		color: #8e908c
+	.cm-comment {
+		color: #8e908c;
+	}
+}

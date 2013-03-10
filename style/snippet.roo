@@ -1,38 +1,45 @@
-.snippet
-	border: 1px solid #ddd
-	border-radius: 5px
+.snippet {
+	border: 1px solid #ddd;
+	border-radius: 5px;
 	// background-color: #fbfbfb
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1)
-	font-size: 14px
-	margin: 1.5em 0
-	overflow: hidden
-	line-height: 1.25
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	font-size: 14px;
+	margin: 1.5em 0;
+	overflow: hidden;
+	line-height: 1.25;
 
-	pre
-		margin: 1.5em
+	pre {
+		margin: 1.5em;
+	}
 
-	.input
-		float: left
-		width: 50%
+	.input {
+		float: left;
+		width: 50%;
+	}
 
-	.file
-		border: 1px solid #ddd
-		margin: 1.5em
-		border-radius: 3px
+	.file {
+		border: 1px solid #ddd;
+		margin: 1.5em;
+		border-radius: 3px;
 
-		.name
-			color: #999
-			border-bottom: 1px solid #ddd
-			padding: 0.5em 0.75em
+		.name {
+			color: #999;
+			border-bottom: 1px solid #ddd;
+			padding: 0.5em 0.75em;
+		}
 
-		pre
-			margin: 0.75em
+		pre {
+			margin: 0.75em;
+		}
+	}
 
-	.output
-		float: right
-		width: 50%
-		border-left: 1px solid #eee
-		margin-left: -1px
-		overflow: hidden
-		padding-bottom: 999px
-		margin-bottom: -999px
+	.output {
+		float: right;
+		width: 50%;
+		border-left: 1px solid #eee;
+		margin-left: -1px;
+		overflow: hidden;
+		padding-bottom: 999px;
+		margin-bottom: -999px;
+	}
+}

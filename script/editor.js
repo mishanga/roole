@@ -95,10 +95,15 @@ Editor.prototype.createInputEditor = function() {
 		mode: 'roole',
 		theme: 'tomorrow',
 		tabSize: 2,
-		indentWithTabs: true,
 		autofocus: true,
 		dragDrop: false,
-		lineNumbers: true
+		lineNumbers: true,
+		extraKeys: {
+			Tab: function(cm) {
+				var spaces = new Array(cm.getOption("indentUnit") + 1).join(" ")
+				cm.replaceSelection(spaces, "end", "+input")
+			}
+		}
 	})
 
 	cm.getWrapperElement().classList.add('lang-roole')

@@ -907,7 +907,7 @@ h3,
 			}
 			#editor > .content .output .error {
 				position: relative;
-				margin: 5px 20px 3px;
+				margin: 5px 0 3px;
 			}
 				#editor > .content .output .error .arrow {
 					border: 5px solid #f22088;
@@ -915,8 +915,8 @@ h3,
 					border-left-color: transparent;
 					border-right-color: transparent;
 					position: absolute;
+					left: 0;
 					bottom: 100%;
-					margin-left: -20px;
 				}
 				#editor > .content .output .error .content {
 					color: #fff;
@@ -976,17 +976,15 @@ h3,
 }
 
 .CodeMirror-gutters {
-	background-color: transparent;
+	background-color: #fff;
 	border: none;
 }
+	.error .CodeMirror-gutters {
+		background: #fff8fb;
+	}
 
 .CodeMirror-linenumber {
 	padding-right: 5px;
-}
-
-.cm-s-tomorrow .cm-tab {
-	border-left: 1px solid #f1f1f1;
-	margin-left: -1px;
 }
 
 .cm-s-tomorrow .cm-tag,

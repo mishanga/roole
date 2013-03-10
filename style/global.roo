@@ -1,91 +1,111 @@
-@import 'var'
+@import 'var';
 
-.hidden
-	display: none
+.hidden {
+	display: none;
+}
 
-.opposite
-	float: right
+.opposite {
+	float: right;
+}
 
-body
-	max-width: $width
-	margin: 0 auto
+body {
+	max-width: $width;
+	margin: 0 auto;
+}
 
-a
-	color: #208fe5
-	text-decoration: none
+a {
+	color: #208fe5;
+	text-decoration: none;
+}
 
-a:hover
-	text-decoration: underline
+a:hover {
+	text-decoration: underline;
+}
 
-#header
-	text-align: center
-	margin-top: 180px
+#header {
+	text-align: center;
+	margin-top: 180px;
+}
 
-#footer
-	border-top: 1px solid #eee
-	margin-top: 120px
-	padding: 20px 0
-	color: #999
-	font-size: 14px
+#footer {
+	border-top: 1px solid #eee;
+	margin-top: 120px;
+	padding: 20px 0;
+	color: #999;
+	font-size: 14px;
+}
 
-#donate
-	display: inline
+#donate {
+	display: inline;
+}
 
-#donate-button
-	border: none
-	background: transparent
-	padding: 0
-	color: #208fe5
+#donate-button {
+	border: none;
+	background: transparent;
+	padding: 0;
+	color: #208fe5;
 
-	&:hover
-		text-decoration: underline
+	&:hover {
+		text-decoration: underline;
+	}
+}
 
-hr
-	border: none
-	margin-top: 60px
+hr {
+	border: none;
+	margin-top: 60px;
+}
 
-h2
-	font-size: 2.5em
-	margin: 120px 0 30px
-	padding-bottom: 5px
-	border-bottom: 1px solid #eee
+h2 {
+	font-size: 2.5em;
+	margin: 120px 0 30px;
+	padding-bottom: 5px;
+	border-bottom: 1px solid #eee;
+}
 
-h3
-	font-size: 2em
-	margin: 60px 0 30px
+h3 {
+	font-size: 2em;
+	margin: 60px 0 30px;
 
-	h2 + &
-		margin: 30px 0
+	h2 + & {
+		margin: 30px 0;
+	}
+}
 
-.info
-.warning
-	padding: 0 10px
-	border-radius: 3px
+.info,
+.warning {
+	padding: 0 10px;
+	border-radius: 3px;
 
-	> code
-		border: none
-		padding: 0
-		margin: 0
-		background-color: transparent
+	> code {
+		border: none;
+		padding: 0;
+		margin: 0;
+		background-color: transparent;
+	}
+}
 
-.info
-	background-color: #e7f4fe
+.info {
+	background-color: #e7f4fe;
+}
 
-.warning
-	background-color: #fef9e7
+.warning {
+	background-color: #fef9e7;
+}
 
-p > code
-	border: 1px solid #eee
-	background-color: #f8f8f8
-	padding: 0 3px
-	margin: 0 3px
-	border-radius: 3px
+p > code {
+	border: 1px solid #eee;
+	background-color: #f8f8f8;
+	padding: 0 3px;
+	margin: 0 3px;
+	border-radius: 3px;
+}
 
+.bookmark {
+	position: relative;
+	display: block;
+	top: -80px;
+}
 
-.bookmark
-	position: relative
-	display: block
-	top: -80px
-
-#logo
-	margin: 0 0 60px
+#logo {
+	margin: 0 0 60px;
+}

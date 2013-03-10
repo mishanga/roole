@@ -1,71 +1,81 @@
-@import 'var'
+@import 'var';
 
-#toc
-	color: #000
-	background: #fff
-	position: absolute
-	list-style: none
-	margin: 0
-	padding: 5px 0
-	border: 1px solid #ddd
-	border-radius: 5px
-	text-transform: none
-	box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1)
-	min-width: 200px
+#toc {
+	color: #000;
+	background: #fff;
+	position: absolute;
+	list-style: none;
+	margin: 0;
+	padding: 5px 0;
+	border: 1px solid #ddd;
+	border-radius: 5px;
+	text-transform: none;
+	box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+	min-width: 200px;
 
-	&.hidden
-		display: block
-		visibility: hidden
-		transition-duration: 200ms
-		opacity: 0
+	&.hidden {
+		display: block;
+		visibility: hidden;
+		transition-duration: 200ms;
+		opacity: 0;
+	}
 
-	&:before
-		content: ''
-		position: absolute
-		top: -9px
-		left: 20px
-		border: 9px solid #ddd
-		border-top: none
-		border-left-color: transparent
-		border-right-color: transparent
+	&:before {
+		content: '';
+		position: absolute;
+		top: -9px;
+		left: 20px;
+		border: 9px solid #ddd;
+		border-top: none;
+		border-left-color: transparent;
+		border-right-color: transparent;
+	}
 
-	&:after
-		content: ''
-		position: absolute
-		top: -8px
-		left: 21px
-		border: 8px solid #fff
-		border-top: none
-		border-left-color: transparent
-		border-right-color: transparent
+	&:after {
+		content: '';
+		position: absolute;
+		top: -8px;
+		left: 21px;
+		border: 8px solid #fff;
+		border-top: none;
+		border-left-color: transparent;
+		border-right-color: transparent;
+	}
 
-	> li
-		font-size: 13px
+	> li {
+		font-size: 13px;
 
-		> a
-			color: #000
-			text-decoration: none
-			display: block
-			padding: 1px 20px
+		> a {
+			color: #000;
+			text-decoration: none;
+			display: block;
+			padding: 1px 20px;
 
-			&:hover
-				background-color: #f2f2f2
+			&:hover {
+				background-color: #f2f2f2;
+			}
+		}
+	}
 
-	> li.separator
-		text-align: center
-		position: relative
+	> li.separator {
+		text-align: center;
+		position: relative;
 
-		&:before
-			content: ''
-			position: absolute
-			left: 0
-			top: 50%
-			width: 100%
-			border-top: 1px solid #ddd
+		&:before {
+			content: '';
+			position: absolute;
+			left: 0;
+			top: 50%;
+			width: 100%;
+			border-top: 1px solid #ddd;
+		}
 
-		> span
-			color: #ccc
-			font-size: 12px
-			background-color: #fff
-			position: relative
-			padding: 0 5px
+		> span {
+			color: #ccc;
+			font-size: 12px;
+			background-color: #fff;
+			position: relative;
+			padding: 0 5px;
+		}
+	}
+}

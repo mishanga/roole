@@ -1,16 +1,19 @@
-body
-	font: 16px/1.5 'Helvetica Nene', Helvetica, Arial, sans-serif
+body {
+	font: 16px/1.5 'Helvetica Nene', Helvetica, Arial, sans-serif;
+}
 
-#nav > ul > li
-#download-button
-#fork-button
-h2
-h3
-.snippet .file
-	font-family: Raleway, sans-serif
-	font-weight: 300
+#nav > ul > li,
+#download-button,
+#fork-button,
+h2,
+h3,
+.snippet .file {
+	font-family: Raleway, sans-serif;
+	font-weight: 300;
+}
 
-.CodeMirror
-.snippet pre
-.code
-	font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace
+.CodeMirror,
+.snippet pre,
+.code {
+	font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+}

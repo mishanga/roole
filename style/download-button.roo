@@ -1,23 +1,25 @@
-#download-button
-	display: inline-block
-	font-size: 20px
-	padding: 15px 30px
-	text-shadow: rgba(0, 0, 0, 0.8) 0 1px
-	color: #fff
-	text-decoration: none
-	border: 1px solid #3186ca
-	background-image: linear-gradient(#39a0ef, #257ee9)
-	background-color: #208fe5
-	border-radius: 5px
-	box-shadow: inset 0 1px rgba(255, 255, 255, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3)
+#download-button {
+	display: inline-block;
+	font-size: 20px;
+	padding: 15px 30px;
+	text-shadow: rgba(0, 0, 0, 0.8) 0 1px;
+	color: #fff;
+	text-decoration: none;
+	border: 1px solid #3186ca;
+	background-image: linear-gradient(#39a0ef, #257ee9);
+	background-color: #208fe5;
+	border-radius: 5px;
+	box-shadow: inset 0 1px rgba(255, 255, 255, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3);
 
-	&:active
-		border-color: transparent
-		background-image: linear-gradient(#257ee9, #39a0ef)
-		box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4)
+	&:active {
+		border-color: transparent;
+		background-image: linear-gradient(#257ee9, #39a0ef);
+		box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+	}
+}
 
-
-#version
-	color: rgba(255, 255, 255, 0.5)
-	margin-left: 5px
-	text-shadow: none
+#version {
+	color: rgba(255, 255, 255, 0.5);
+	margin-left: 5px;
+	text-shadow: none;
+}
