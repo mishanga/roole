@@ -6,6 +6,7 @@
     "bower": "~0.6.8",
     "jsdom": "~0.3.4",
     "marked": "~0.2.7",
-    "mustache": "~0.7.2"
+    "mustache": "~0.7.2",
+    "clean-css": "~0.10.1"
   }
 }

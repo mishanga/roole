@@ -35,9 +35,10 @@ LATEST_TAG = $(shell git describe --abbrev=0 master)
 roole:
 	git merge -Xsubtree=roole $(LATEST_TAG) -m 'subtree merge latest tag into roole folder'
 
-style/style.css: roole/bin/roole $(DOC_CSS_FILES) $(DOC_ROO_FILES)
+style/style.css: roole/bin/roole node_modules/.bin/cleancss $(DOC_CSS_FILES) $(DOC_ROO_FILES)
 	cat $(DOC_CSS_FILES) >$@
-	roole/bin/roole -p $(DOC_ROO_FILES) >>$@
+	$< -p $(DOC_ROO_FILES) >>$@
+	$(word 2,$^) --s0 --remove-empty --output $@ $@
 
 script/script.js: $(DOC_JS_FILES) roole/node_modules/.bin/uglifyjs
 	roole/node_modules/.bin/uglifyjs $(DOC_JS_FILES) -cmo $@
