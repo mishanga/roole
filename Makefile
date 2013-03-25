@@ -70,7 +70,7 @@ test/mocha.%: roole/node_modules/mocha/mocha.%
 	cp -f $< $@
 
 merge:
-	git merge -Xsubtree=roole --no-commit master
+	git merge -Xsubtree=roole master
 
 node_modules/%:
 	npm install
