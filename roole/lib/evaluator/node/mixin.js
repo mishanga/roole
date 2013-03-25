@@ -1,8 +1,14 @@
-'use strict'
+'use strict';
 
-var Evaluator = require('../evaluator')
+var Evaluator = require('../evaluator');
 
 Evaluator.prototype.visitMixin = function(mixinNode) {
-	var parameterList = mixinNode.children[0]
-	this.visit(parameterList)
-}
+	var insideMixin = this.insideMixin;
+	this.insideMixin = true;
+
+	var ruleNodes = this.visit(mixinNode.children[0]);
+
+	this.insideMixin = insideMixin;
+
+	return ruleNodes;
+};

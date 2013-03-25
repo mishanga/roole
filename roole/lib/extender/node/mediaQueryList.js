@@ -1,24 +1,25 @@
-'use strict'
+'use strict';
 
-var Node = require('../../node')
-
-var Extender = require('../extender')
+var Node = require('../../node');
+var Extender = require('../extender');
 
 Extender.prototype.visitMediaQueryList = function(mediaQueryListNode) {
-	if (this.parentMediaQueries) {
-		var parentMediaQueries = []
+	if (this.parentMediaQueryList) {
+		var childNodes = [];
+		var length = this.parentMediaQueryList.children.length;
 
-		this.parentMediaQueries.forEach(function(parentMediaQuery) {
-			this.parentMediaQuery = parentMediaQuery
+		this.parentMediaQueryList.children.forEach(function(parentMediaQuery, i) {
+			this.parentMediaQuery = parentMediaQuery;
 
-			mediaQueryListNode.children.forEach(function(mediaQueryNode) {
-				parentMediaQueries.push(this.visit(mediaQueryNode))
-			}, this)
-		}, this)
+			var mediaQueryListClone = i === length - 1 ?
+				mediaQueryListNode :
+				Node.clone(mediaQueryListNode);
+			childNodes = childNodes.concat(this.visit(mediaQueryListClone.children));
+		}, this);
 
-		mediaQueryListNode.children = parentMediaQueries
+		mediaQueryListNode.children = childNodes;
 	} else {
-		this.parentMediaQuery = ''
-		this.visit(mediaQueryListNode.children)
+		this.parentMediaQuery = null;
+		this.visit(mediaQueryListNode.children);
 	}
-}
+};

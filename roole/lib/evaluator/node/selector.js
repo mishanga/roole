@@ -1,30 +1,27 @@
-'use strict'
+'use strict';
 
-var Evaluator = require('../evaluator')
+var Evaluator = require('../evaluator');
 
 Evaluator.prototype.visitSelector = function(selectorNode) {
-	var childNodes = []
+	this.visit(selectorNode.children);
 
+	var childNodes = [];
+	var prevIsCombinator = false;
 	selectorNode.children.forEach(function(childNode) {
-		childNode = this.visit(childNode)
-
-		// make sure not to result in two consecutive combinators
-		// which can happen when
-		//	$selector = '> div';
-		//	body $selector {}
-		if (Array.isArray(childNode)) {
-			if (
-				childNode[0].type === 'combinator' &&
-				childNodes.length &&
-				childNodes[childNodes.length - 1].type === 'combinator'
-			)
-				childNodes.pop()
-
-			childNodes = childNodes.concat(childNode)
+		// make sure selector interpolation not to result in
+		// two consecutive combinators
+		if (childNode.type === 'combinator') {
+			if (prevIsCombinator) {
+				childNodes.pop();
+			} else {
+				prevIsCombinator = true;
+			}
 		} else {
-			childNodes.push(childNode)
+			prevIsCombinator = false;
 		}
-	}, this)
 
-	selectorNode.children = childNodes
-}
+		childNodes.push(childNode);
+	}, this);
+
+	selectorNode.children = childNodes;
+};

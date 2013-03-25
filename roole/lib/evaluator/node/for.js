@@ -1,83 +1,78 @@
-'use strict'
+'use strict';
 
-var Err = require('../../err')
-var Node = require('../../node')
-
-var Evaluator = require('../evaluator')
+var Err = require('../../err');
+var Node = require('../../node');
+var Evaluator = require('../evaluator');
 
 Evaluator.prototype.visitFor = function(forNode) {
-	var stepNode = this.visit(forNode.children[2])
-	var stepNumber = 1
+	var stepNode = this.visit(forNode.children[2]);
+	var stepNumber = 1;
 	if (stepNode) {
-		stepNumber = Node.toNumber(stepNode)
-		if (stepNumber === null)
-			throw Err("step number must be a numberic value", stepNode, this.filePath)
+		stepNumber = Node.toNumber(stepNode);
+		if (stepNumber === null) {
+			throw Err("step number must be a numberic value", stepNode, this.fileName);
+		}
 
-		if (!stepNumber)
-			throw Err("step number is not allowed to be zero", stepNode, this.filePath)
+		if (!stepNumber) {
+			throw Err("step number is not allowed to be zero", stepNode, this.fileName);
+		}
 	}
 
-	var listNode = this.visit(forNode.children[3])
-	if (listNode.type === 'range')
-		listNode = Node.toListNode(listNode)
+	var valueVariableNode = forNode.children[0];
+	var indexVariableNode = forNode.children[1];
+	var listNode = this.visit(forNode.children[3]);
+	listNode = Node.toListNode(listNode);
+	var ruleListNode = forNode.children[4];
 
-	var valueVariableNode = forNode.children[0]
-	var valueVariableName = valueVariableNode.children[0]
-
-	var IndexVariableNode = forNode.children[1]
+	var valueVariableName = valueVariableNode.children[0];
 
 	if (listNode.type === 'null') {
-		this.scope.define(valueVariableName, listNode)
+		this.scope.define(valueVariableName, listNode);
 
-		if (IndexVariableNode) {
-			var IndexVariableName = IndexVariableNode.children[0]
-			var IndexNode = Node('null', {loc: IndexVariableNode.loc})
-			this.scope.define(IndexVariableName, IndexNode)
+		if (indexVariableNode) {
+			var indexVariableName = indexVariableNode.children[0];
+			var indexNode = Node('null', {loc: indexVariableNode.loc});
+			this.scope.define(indexVariableName, indexNode);
 		}
 
-		return null
+		return null;
 	}
-
-	var ruleListNode = forNode.children[4]
 
 	if (listNode.type !== 'list') {
-		this.scope.define(valueVariableName, listNode)
+		this.scope.define(valueVariableName, listNode);
 
-		if (IndexVariableNode) {
-			var IndexVariableName = IndexVariableNode.children[0]
-			var IndexNode = Node('number', [0], {loc: IndexVariableNode.loc})
-			this.scope.define(IndexVariableName, IndexNode)
+		if (indexVariableNode) {
+			var indexVariableName = indexVariableNode.children[0];
+			var indexNode = Node('number', [0], {loc: indexVariableNode.loc});
+			this.scope.define(indexVariableName, indexNode);
 		}
 
-		return this.visit(ruleListNode.children)
+		return this.visit(ruleListNode.children);
 	}
 
-	var itemNodes = listNode.children
-	var ruleNodes = []
-	var length = itemNodes.length
+	var itemNodes = listNode.children;
+	var lastIndex = (itemNodes.length - 1) / 2;
+	var ruleNodes = [];
 
-	if (stepNumber > 0)
-		for (var i = 0, j = i, length = itemNodes.length; i < length; i += 2 * stepNumber, ++j) {
-			iterate.call(this, itemNodes[i], j, i === length - 1)
-		}
-	else
-		for (var i = itemNodes.length - 1, j = Math.floor(i / 2); i >= 0; i += 2 * stepNumber, --j) {
-			iterate.call(this, itemNodes[i], j, !i)
-		}
+	for (
+		var i = stepNumber > 0 ? 0 : lastIndex;
+		stepNumber > 0 ? i <= lastIndex : i >= 0;
+		i += stepNumber
+	) {
+		var itemNode = itemNodes[i * 2];
+		this.scope.define(valueVariableName, itemNode);
 
-	function iterate(itemNode, i, isLast) {
-		this.scope.define(valueVariableName, itemNode)
-
-		if (IndexVariableNode) {
-			var IndexVariableName = IndexVariableNode.children[0]
-			var IndexNode = Node('number', [i], {loc: IndexVariableNode.loc})
-			this.scope.define(IndexVariableName, IndexNode)
+		if (indexVariableNode) {
+			var indexVariableName = indexVariableNode.children[0];
+			var indexNode = Node('number', [i], {loc: indexVariableNode.loc});
+			this.scope.define(indexVariableName, indexNode);
 		}
 
-		var ruleListClone = isLast ? ruleListNode : Node.clone(ruleListNode)
-		this.visit(ruleListClone)
-		ruleNodes = ruleNodes.concat(ruleListClone.children)
+		var isLast = i === (stepNumber > 0 ? lastIndex : 0);
+		var ruleListClone = isLast ? ruleListNode : Node.clone(ruleListNode);
+		this.visit(ruleListClone.children);
+		ruleNodes = ruleNodes.concat(ruleListClone.children);
 	}
 
-	return ruleNodes
-}
+	return ruleNodes;
+};

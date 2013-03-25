@@ -1,45 +1,41 @@
-'use strict'
+'use strict';
 
-var defaults = require('../defaults')
-var generatedParser = require('./generatedParser')
-
-var parser = exports
+var generatedParser = require('./generatedParser');
+var parser = exports;
 
 parser.parse = function(input, options) {
-	var filePath = options.filePath || defaults.filePath
+	var fileName = options.fileName;
 
 	try {
-		var ast = generatedParser.parse(input, {
-			startRule: options._startRule,
-			loc: options._loc
-		})
-		if (ast.type === 'root')
-			ast.filePath = filePath
-		return ast
+		var ast = generatedParser.parse(input, options);
+		if (ast.type === 'root') { ast.fileName = fileName; }
+
+		return ast;
 	} catch(error) {
 		if (error.line) {
-			var found = error.found
+			var found = error.found;
 			switch (found) {
 			case '\r':
 			case '\n':
-				found = 'new line'
-				break
+				found = 'new line';
+				break;
 			default:
-				if (!found)
-					found = 'end of file'
-				else
-					found = "'" + found + "'"
+				if (!found) {
+					found = 'end of file';
+				} else {
+					found = "'" + found + "'";
+				}
 			}
-			error.message = "Unexpected " + found
-			error.filePath = filePath
+			error.message = "unexpected " + found;
+			error.fileName = fileName;
 
-			if (options._loc) {
-				error.line = options._loc.line
-				error.column = options._loc.column
-				error.offset = options._loc.offset
+			if (options.loc) {
+				error.line = options.loc.line;
+				error.column = options.loc.column;
+				error.offset = options.loc.offset;
 			}
 		}
 
-		throw error
+		throw error;
 	}
-}
+};

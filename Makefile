@@ -21,19 +21,13 @@ DOC_JS_FILES = \
 	script/toc.js \
 	script/editor.js
 
-doc: roole release script/script.js style/style.css index.html test
-
-release: dist/roole.js dist/roole.min.js
+doc: dist/roole.js dist/roole.min.js script/script.js style/style.css index.html test
 
 dist/roole.js: roole/dist/roole.js | dist
 	cp -f $< $@
 
 dist/roole.min.js: roole/dist/roole.min.js | dist
 	cp -f $< $@
-
-LATEST_TAG = $(shell git describe --abbrev=0 master)
-roole:
-	git merge -Xsubtree=roole $(LATEST_TAG) -m 'subtree merge latest tag into roole folder'
 
 style/style.css: roole/bin/roole node_modules/.bin/cleancss $(DOC_CSS_FILES) $(DOC_ROO_FILES)
 	cat $(DOC_CSS_FILES) >$@
@@ -43,10 +37,10 @@ style/style.css: roole/bin/roole node_modules/.bin/cleancss $(DOC_CSS_FILES) $(D
 script/script.js: $(DOC_JS_FILES) roole/node_modules/.bin/uglifyjs
 	roole/node_modules/.bin/uglifyjs $(DOC_JS_FILES) -cmo $@
 
-roole/dist/roole.js: .FORCE
+roole/dist/roole.js:
 	cd roole && $(MAKE) roole
 
-roole/dist/roole.min.js: .FORCE
+roole/dist/roole.min.js:
 	cd roole && $(MAKE) min
 
 index.html: \
@@ -66,7 +60,7 @@ test: test/test.js test/index.html test/mocha.css test/mocha.js
 test/test.js: roole/test/test.js
 	cp -f $< $@
 
-roole/test/test.js: .FORCE
+roole/test/test.js:
 	cd roole && make browser-test
 
 test/index.html: roole/test/index.html
@@ -74,6 +68,9 @@ test/index.html: roole/test/index.html
 
 test/mocha.%: roole/node_modules/mocha/mocha.%
 	cp -f $< $@
+
+merge:
+	git merge -Xsubtree=roole --no-commit master
 
 node_modules/%:
 	npm install
@@ -89,7 +86,5 @@ dist:
 
 clean:
 	cd roole && $(MAKE) clean
-
-.FORCE:
 
 .PHONY: roole doc release clean

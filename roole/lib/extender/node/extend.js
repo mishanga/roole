@@ -1,31 +1,35 @@
-'use strict'
+'use strict';
 
-var MediaFilter = require('../mediaFilter')
-var RulesetExtender = require('../rulesetExtender')
-var compiler = require('../../compiler')
-
-var Extender = require('../extender')
+var MediaFilter = require('../mediaFilter');
+var RulesetFilter = require('../rulesetFilter');
+var SelectorExtender = require('../selectorExtender');
+var Extender = require('../extender');
 
 Extender.prototype.visitExtend = function(extendNode) {
-	var nodes = this.extendBoundaryNode.children
+	var nodes = this.extendBoundaryNode.children;
+
+	if (this.parentMediaQueryList) {
+		var mediaNodes = new MediaFilter().filter(nodes, this.parentMediaQueryList, options);
+		nodes = [];
+		mediaNodes.forEach(function(mediaNode) {
+			nodes = nodes.concat(mediaNode.children);
+		});
+	}
+
 	var options = {
 		extendNode: extendNode,
-		insideVoid: !!this.parentVoid
-	}
+		insideVoid: this.insideVoid
+	};
 
-	if (this.parentMediaQueries) {
-		var mediaNodes = new MediaFilter().filter(nodes, this.parentMediaQueries, options)
-		nodes = []
-		mediaNodes.forEach(function(mediaNode) {
-			nodes = nodes.concat(mediaNode.children)
-		})
-	}
-
-	var selectorListNode = extendNode.children[0]
+	var rulesetNodes = [];
+	var selectorListNode = extendNode.children[0];
 	selectorListNode.children.forEach(function(selectorNode) {
-		selectorNode = compiler.compile(selectorNode)
-		new RulesetExtender().extend(nodes, selectorNode, this.parentSelectors, options)
-	}, this)
+		rulesetNodes = rulesetNodes.concat(new RulesetFilter().filter(nodes, selectorNode, options));
+	});
 
-	return null
-}
+	rulesetNodes.forEach(function(rulesetNode) {
+		new SelectorExtender().extend(rulesetNode, this.parentSelectorList, options);
+	}, this);
+
+	return null;
+};

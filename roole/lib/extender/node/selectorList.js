@@ -1,29 +1,28 @@
-'use strict'
+'use strict';
 
-var Node = require('../../node')
-
-var Extender = require('../extender')
+var Node = require('../../node');
+var Extender = require('../extender');
 
 Extender.prototype.visitSelectorList = function(selectorListNode) {
-	var selectorListClone = Node.clone(selectorListNode, false)
-	selectorListClone.children = selectorListNode.children
-	selectorListNode.originalNode = selectorListClone
+	var selectorListClone = Node.clone(selectorListNode);
+	selectorListNode.originalNode = selectorListClone;
 
-	var selectors = []
-	if (this.parentSelectors) {
-		this.parentSelectors.forEach(function(parentSelector) {
-			this.parentSelector = parentSelector
+	if (this.parentSelectorList) {
+		var childNodes = [];
+		var length = this.parentSelectorList.children.length;
 
-			selectorListNode.children.forEach(function(selectorNode) {
-				selectors.push(this.visit(selectorNode))
-			}, this)
-		}, this)
+		this.parentSelectorList.children.forEach(function(parentSelector, i) {
+			this.parentSelector = parentSelector;
+
+			var selectorListClone = i === length - 1 ?
+				selectorListNode :
+				Node.clone(selectorListNode);
+			childNodes = childNodes.concat(this.visit(selectorListClone.children));
+		}, this);
+
+		selectorListNode.children = childNodes;
 	} else {
-		this.parentSelector = null
-		selectorListNode.children.forEach(function(selectorNode) {
-			selectors.push(this.visit(selectorNode))
-		}, this)
+		this.parentSelector = null;
+		this.visit(selectorListNode.children);
 	}
-
-	selectorListNode.children = selectors
-}
+};

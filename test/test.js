@@ -1,1515 +1,5503 @@
-'use strict'
+'use strict';
 
-var assert = {}
+var existsSync = fs.existsSync || path.existsSync;
+var assert = {};
 
-assert.compileTo = function(imports, input, css, options) {
-	var called = false
-
-	if (typeof imports !== 'object') {
-		options = css
-		css = input
-		input = imports
-		imports = {}
+assert.compileTo = function(options, input, css) {
+	if (arguments.length < 3) {
+		css = input;
+		input = options;
+		options = {};
 	}
 
-	if (!options)
-		options = {}
+	input = input.join('\n');
+	css = css.join('\n');
 
-	options.imports = imports
-	options.prettyError = true
+	options.prettyError = true;
+	if (options.imports) {
+		for (var file in options.imports) {
+			options.imports[file] = options.imports[file].join('\n');
+		}
+	}
 
+	var called = false;
 	roole.compile(input, options, function(error, output) {
-		called = true
+		called = true;
 
-		if (error)
-			throw error
+		if (error) {
+			throw error;
+		}
 
 		if (output !== css) {
-			error = new Error('')
-			error.actual = output
-			error.expected = css
+			error = new Error('');
+			error.actual = output;
+			error.expected = css;
 
-			output = output ? '\n"""\n' + output + '\n"""\n' : ' ' + output + '\n'
-			css = css ? '\n"""\n' + css + '\n"""' : ' empty string'
-			error.message = 'input compiled to' + output + 'instead of' + css
+			output = output ? '\n"""\n' + output + '\n"""\n' : ' ' + output + '\n';
+			css = css ? '\n"""\n' + css + '\n"""' : ' empty string';
+			error.message = 'input compiled to' + output + 'instead of' + css;
 
-			throw error
+			throw error;
 		}
-	})
+	});
 
-	if (!called)
-		throw new Error('input is never compiled')
-}
+	if (!called) {
+		throw new Error('input is never compiled');
+	}
+};
 
-assert.failAt = function(imports, input, line, column, filePath) {
-	var called = false
-
-	if (typeof imports !== 'object') {
-		filePath = column
-		column = line
-		line = input
-		input = imports
-		imports = {}
+assert.failAt = function(options, input, loc) {
+	if (arguments.length < 3) {
+		loc = input;
+		input = options;
+		options = {};
 	}
 
-	if (!filePath)
-		filePath = ''
+	input = input.join('\n');
 
-	var options = {
-		imports: imports,
-		prettyError: true
+	options.prettyError = true;
+	if (options.imports) {
+		for (var file in options.imports) {
+			options.imports[file] = options.imports[file].join('\n');
+		}
 	}
 
-	roole.compile(input, options, function(error, css) {
-		if (!error)
-			throw new Error('no error is thrown')
+	if (!loc.fileName) { loc.fileName = ''; }
 
-		if (!error.line)
-			throw error
-
-		called = true
-
-		if (error.line !== line) {
-			var message = 'error has line number ' + error.line + ' instead of ' + line
-			error.message = message + ':\n\n' + error.message
-			throw error
+	var called = false;
+	roole.compile(input, options, function(error) {
+		if (!error) {
+			throw new Error('no error is thrown');
 		}
 
-		if (error.column !== column) {
-			var message = 'error has column number ' + error.column + ' instead of ' + column
-			error.message = message + ':\n\n' + error.message
-			throw error
+		if (!error.line) {
+			throw error;
 		}
 
-		if (error.filePath !== filePath) {
-			var message = 'error has file path ' + error.filePath + ' instead of ' + filePath
-			error.message = message + ':\n\n' + error.message
-			throw error
-		}
-	})
+		called = true;
 
-	if (!called)
-		throw new Error('input is never compiled')
-}
+		if (error.line !== loc.line) {
+			var message = 'error has line number ' + error.line + ' instead of ' + loc.line;
+			error.message = message + ':\n\n' + error.message;
+			throw error;
+		}
+
+		if (error.column !== loc.column) {
+			var message = 'error has column number ' + error.column + ' instead of ' + loc.column;
+			error.message = message + ':\n\n' + error.message;
+			throw error;
+		}
+
+		if (error.fileName !== loc.fileName) {
+			var message = 'error has file path ' + error.fileName + ' instead of ' + loc.fileName;
+			error.message = message + ':\n\n' + error.message;
+			throw error;
+		}
+	});
+
+	if (!called) {
+		throw new Error('input is never compiled');
+	}
+};
+
+assert.run = function(cmd, input, output) {
+	var dir = 'test-dir';
+	if (!existsSync(dir)) {
+		mkdirp.sync(dir);
+	}
+
+	if (Array.isArray(input.stdin)) {
+		input.stdin = input.stdin.join('\n');
+	}
+
+	var done = output.done;
+	var callback = function(error) {
+		exec('rm -rf ' + dir, function() {
+			done(error);
+		});
+	};
+
+	if (input.files) {
+		for (var fileName in input.files) {
+			var fileContent = input.files[fileName];
+			fileName = path.join(dir, fileName);
+
+			if (existsSync(fileName)) {
+				return callback(new Error("'" + fileName + "' already exists"));
+			}
+
+			var fileDir = path.dirname(fileName);
+			if (!existsSync(fileDir)) {
+				mkdirp.sync(fileDir);
+			}
+
+			if (Array.isArray(fileContent)) {
+				fileContent = fileContent.join('\n');
+			}
+
+			fs.writeFileSync(fileName, fileContent);
+		}
+	}
+
+	var child = exec('../bin/' + cmd, {cwd: dir}, function(error, stdout) {
+		if (error) {
+			return callback(error);
+		}
+
+		if (Array.isArray(output.stdout)) {
+			output.stdout = output.stdout.join('\n');
+		}
+
+		if (output.stdout) {
+			output.stdout += '\n';
+			stdout = stdout.toString();
+			if (stdout !== output.stdout) {
+				return callback(new Error('stdout is\n"""\n' + stdout + '\n"""\n\ninstead of\n\n"""\n' + output.stdout + '\n"""'));
+			}
+		} else if (output.files) {
+			for (var fileName in output.files) {
+				var fileContent = output.files[fileName];
+				fileName = path.join(dir, fileName);
+
+				if (fileContent === null) {
+					if (existsSync(fileName)) {
+						return callback(new Error('"' + fileName + '" is created, which is not supposed to be'));
+					}
+
+					continue;
+				}
+
+				var realContent = fs.readFileSync(fileName, 'utf8');
+
+				if (Array.isArray(fileContent)) {
+					fileContent = fileContent.join('\n');
+				}
+
+				if (realContent !== fileContent) {
+					return callback(new Error('"' + fileName + '" is\n"""\n' + realContent + '\n"""\n\ninstead of\n\n"""\n' + fileContent + '\n"""'));
+				}
+			}
+		}
+
+		callback();
+	});
+
+	if (input.stdin) {
+		child.stdin.end(input.stdin);
+	}
+};
+
 suite('comment');
 
 test('empty input', function() {
-  return assert.compileTo('', '');
+	assert.compileTo([
+		'',
+	], [
+		'',
+	]);
 });
 
 test('pure spaces input', function() {
-  return assert.compileTo('  ', '');
+	assert.compileTo([
+		'  ',
+	], [
+		'',
+	]);
 });
 
 test('single-line commnet', function() {
-  return assert.compileTo('// before selector\nbody // selctor\n{\n// after selector\n	// before property\n	width: auto; // property\n	// after property\n// outdent\n	height: auto; // before eof\n}', 'body {\n	width: auto;\n	height: auto;\n}');
+	assert.compileTo([
+		'// before selector',
+		'body // selctor',
+		'{',
+		'// after selector',
+		'	// before property',
+		'	width: auto; // property',
+		'	// after property',
+		'// outdent',
+		'	height: auto; // before eof',
+		'}',
+	], [
+		'body {',
+		'	width: auto;',
+		'	height: auto;',
+		'}',
+	]);
 });
 
 test('multi-line commnet', function() {
-  return assert.compileTo('/* license */\n\nbody {\n/* after selector */\n	margin: 0;\n}', '/* license */\n\nbody {\n	margin: 0;\n}');
+	assert.compileTo([
+		'/* license */',
+		'',
+		'body {',
+		'/* after selector */',
+		'	margin: 0;',
+		'}',
+	], [
+		'/* license */',
+		'',
+		'body {',
+		'	margin: 0;',
+		'}',
+	]);
 });
 
 suite('selector');
 
 test('simple selector', function() {
-  return assert.compileTo('div {\n	width: auto;\n}', 'div {\n	width: auto;\n}');
+	assert.compileTo([
+		'div {',
+		'	width: auto;',
+		'}',
+	], [
+		'div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('compound selector', function() {
-  return assert.compileTo('body div {\n	width: auto;\n}', 'body div {\n	width: auto;\n}');
+	assert.compileTo([
+		'body div {',
+		'	width: auto;',
+		'}',
+	], [
+		'body div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('selector list', function() {
-  return assert.compileTo('div, p {\n	width: auto;\n}', 'div,\np {\n	width: auto;\n}');
+	assert.compileTo([
+		'div, p {',
+		'	width: auto;',
+		'}',
+	], [
+		'div,',
+		'p {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector under selector', function() {
-  return assert.compileTo('body {\n	div {\n		width: auto;\n	}\n}', 'body div {\n	width: auto;\n}');
+	assert.compileTo([
+		'body {',
+		'	div {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'body div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest & selector under selector', function() {
-  return assert.compileTo('body {\n	& {\n		width: auto;\n	}\n}', 'body {\n	width: auto;\n}');
+	assert.compileTo([
+		'body {',
+		'	& {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'body {',
+		'	width: auto;',
+		'}',
+	]);
+});
+
+test('nest & selector followed by identifier under selector', function() {
+	assert.compileTo([
+		'.menu {',
+		'	&-item {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'.menu-item {',
+		'	width: auto;',
+		'}',
+	]);
+});
+
+test('nest & selector followed by identifier prepended with dash under selector', function() {
+	assert.compileTo([
+		'.menu {',
+		'	&--item {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'.menu--item {',
+		'	width: auto;',
+		'}',
+	]);
+});
+
+test('not allow nesting & selector followed by identifier to result in invalid selector', function() {
+	assert.failAt([
+		'[type=button] {',
+		'	&-item {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], {line: 2, column: 2});
 });
 
 test('nest selector containing & selector under selector', function() {
-  return assert.compileTo('body {\n	html & {\n		width: auto;\n	}\n}', 'html body {\n	width: auto;\n}');
+	assert.compileTo([
+		'body {',
+		'	html & {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'html body {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector starting with combinator under selector', function() {
-  return assert.compileTo('body {\n	> div {\n		width: auto;\n	}\n}', 'body > div {\n	width: auto;\n}');
+	assert.compileTo([
+		'body {',
+		'	> div {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'body > div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector list under selector', function() {
-  return assert.compileTo('body div {\n	p, img {\n		width: auto;\n	}\n}', 'body div p,\nbody div img {\n	width: auto;\n}');
+	assert.compileTo([
+		'body div {',
+		'	p, img {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'body div p,',
+		'body div img {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector list containing & selector under selector', function() {
-  return assert.compileTo('body div {\n	&, img {\n		width: auto;\n	}\n}', 'body div,\nbody div img {\n	width: auto;\n}');
+	assert.compileTo([
+		'body div {',
+		'	&, img {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'body div,',
+		'body div img {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector under selector list', function() {
-  return assert.compileTo('html, body {\n	div {\n		width: auto;\n	}\n}', 'html div,\nbody div {\n	width: auto;\n}');
+	assert.compileTo([
+		'html, body {',
+		'	div {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'html div,',
+		'body div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest & selector under selector list', function() {
-  return assert.compileTo('html, body {\n	& {\n		width: auto;\n	}\n}', 'html,\nbody {\n	width: auto;\n}');
+	assert.compileTo([
+		'html, body {',
+		'	& {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'html,',
+		'body {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector containing & selector under selector list', function() {
-  return assert.compileTo('body, div {\n	html & {\n		width: auto;\n	}\n}', 'html body,\nhtml div {\n	width: auto;\n}');
+	assert.compileTo([
+		'body, div {',
+		'	html & {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'html body,',
+		'html div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector starting with combinator under selector list', function() {
-  return assert.compileTo('body, div {\n	> p {\n		width: auto;\n	}\n}', 'body > p,\ndiv > p {\n	width: auto;\n}');
+	assert.compileTo([
+		'body, div {',
+		'	> p {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'body > p,',
+		'div > p {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector list under selector list', function() {
-  return assert.compileTo('html, body {\n	p, img {\n		width: auto;\n	}\n}', 'html p,\nhtml img,\nbody p,\nbody img {\n	width: auto;\n}');
+	assert.compileTo([
+		'html, body {',
+		'	p, img {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'html p,',
+		'html img,',
+		'body p,',
+		'body img {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector list containing & selector under selector list', function() {
-  return assert.compileTo('html, body {\n	&, img {\n		width: auto;\n	}\n}', 'html,\nhtml img,\nbody,\nbody img {\n	width: auto;\n}');
+	assert.compileTo([
+		'html, body {',
+		'	&, img {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'html,',
+		'html img,',
+		'body,',
+		'body img {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('nest selector list containing selector starting with combinator under selector list', function() {
-  return assert.compileTo('body, div {\n	> p, img {\n		width: auto;\n	}\n}', 'body > p,\nbody img,\ndiv > p,\ndiv img {\n	width: auto;\n}');
+	assert.compileTo([
+		'body, div {',
+		'	> p, img {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'body > p,',
+		'body img,',
+		'div > p,',
+		'div img {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('deeply nested selector', function() {
-  return assert.compileTo('html {\n	body {\n		div {\n			width: auto;\n		}\n	}\n}', 'html body div {\n	width: auto;\n}');
+	assert.compileTo([
+		'html {',
+		'	body {',
+		'		div {',
+		'			width: auto;',
+		'		}',
+		'	}',
+		'}',
+	], [
+		'html body div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('not allow & selector at the top level', function() {
-  return assert.failAt('& {\n	width: auto;\n}', 1, 1);
+	assert.failAt([
+		'& {',
+		'	width: auto;',
+		'}',
+	], {line: 1, column: 1});
 });
 
 test('not allow selector starting with a combinator at the top level', function() {
-  return assert.failAt('> div {\n	width: auto;\n}', 1, 1);
+	assert.failAt([
+		'> div {',
+		'	width: auto;',
+		'}',
+	], {line: 1, column: 1});
 });
 
 test('not allow & selector at the top level', function() {
-  return assert.failAt('& {\n	width: auto;\n}', 1, 1);
+	assert.failAt([
+		'& {',
+		'	width: auto;',
+		'}',
+	], {line: 1, column: 1});
 });
 
 test('interpolating selector', function() {
-  return assert.compileTo('$sel = \' body \';\n$sel {\n	width: auto;\n}', 'body {\n	width: auto;\n}');
+	assert.compileTo([
+		'$sel = " body ";',
+		'$sel {',
+		'	width: auto;',
+		'}',
+	], [
+		'body {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('not allow interpolating invalid selector', function() {
-  return assert.failAt('$sel = \'body #\';\n$sel {\n	width: auto;\n}', 2, 1);
+	assert.failAt([
+		'$sel = "body #";',
+		'$sel {',
+		'	width: auto;',
+		'}',
+	], {line: 2, column: 1});
 });
 
 test('not allow interpolating & selector at the top level', function() {
-  return assert.failAt('$sel = \'&\';\n$sel {\n	width: auto;\n}', 2, 1);
+	assert.failAt([
+		'$sel = "&";',
+		'$sel {',
+		'	width: auto;',
+		'}',
+	], {line: 2, column: 1});
 });
 
 test('interpolating selector inside selector', function() {
-  return assert.compileTo('$sel = \'div \';\nbody $sel {\n	width: auto;\n}', 'body div {\n	width: auto;\n}');
+	assert.compileTo([
+		'$sel = "div ";',
+		'body $sel {',
+		'	width: auto;',
+		'}',
+	], [
+		'body div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('interpolating selector staring with combinator inside selector', function() {
-  return assert.compileTo('$sel = \' >  div\';\nbody $sel {\n	width: auto;\n}', 'body > div {\n	width: auto;\n}');
+	assert.compileTo([
+		'$sel = " >  div";',
+		'body $sel {',
+		'	width: auto;',
+		'}',
+	], [
+		'body > div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('not allow interpolating & selector inside selector at the top level', function() {
-  return assert.failAt('$sel = \'& div\';\nbody $sel {\n	width: auto;\n}', 2, 6);
+	assert.failAt([
+		'$sel = "& div";',
+		'body $sel {',
+		'	width: auto;',
+		'}',
+	], {line: 2, column: 6});
 });
 
 test('interpolating selector containing & selector and nested under selector', function() {
-  return assert.compileTo('$sel = \'& div\';\nbody {\n	html $sel {\n		width: auto;\n	}\n}', 'html body div {\n	width: auto;\n}');
+	assert.compileTo([
+		'$sel = "& div";',
+		'body {',
+		'	html $sel {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'html body div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('not allow interpolating selector list inside selector', function() {
-  return assert.failAt('$sel = \'div, p\';\nbody $sel {\n	width: auto;\n}', 2, 6);
+	assert.failAt([
+		'$sel = "div, p";',
+		'body $sel {',
+		'	width: auto;',
+		'}',
+	], {line: 2, column: 6});
 });
 
 test('interpolate identifier', function() {
-  return assert.compileTo('$sel = div;\n$sel {\n	width: auto;\n}', 'div {\n	width: auto;\n}');
+	assert.compileTo([
+		'$sel = div;',
+		'$sel {',
+		'	width: auto;',
+		'}',
+	], [
+		'div {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('universal selector', function() {
-  return assert.compileTo('* {\n	margin: 0;\n}', '* {\n	margin: 0;\n}');
+	assert.compileTo([
+		'* {',
+		'	margin: 0;',
+		'}',
+	], [
+		'* {',
+		'	margin: 0;',
+		'}',
+	]);
 });
 
 test('attribute selector', function() {
-  return assert.compileTo('input[type=button] {\n	margin: 0;\n}', 'input[type=button] {\n	margin: 0;\n}');
+	assert.compileTo([
+		'input[type=button] {',
+		'	margin: 0;',
+		'}',
+	], [
+		'input[type=button] {',
+		'	margin: 0;',
+		'}',
+	]);
 });
 
 test('attribute selector without value', function() {
-  return assert.compileTo('input[hidden] {\n	margin: 0;\n}', 'input[hidden] {\n	margin: 0;\n}');
+	assert.compileTo([
+		'input[hidden] {',
+		'	margin: 0;',
+		'}',
+	], [
+		'input[hidden] {',
+		'	margin: 0;',
+		'}',
+	]);
 });
 
 test('pseudo selector', function() {
-  return assert.compileTo(':hover {\n	text-decoration: underline;\n}', ':hover {\n	text-decoration: underline;\n}');
+	assert.compileTo([
+		':hover {',
+		'	text-decoration: underline;',
+		'}',
+	], [
+		':hover {',
+		'	text-decoration: underline;',
+		'}',
+	]);
 });
 
 test('double-colon pseudo selector', function() {
-  return assert.compileTo('a::before {\n	content: \' \';\n}', 'a::before {\n	content: \' \';\n}');
+	assert.compileTo([
+		'a::before {',
+		'	content: " ";',
+		'}',
+	], [
+		'a::before {',
+		'	content: " ";',
+		'}',
+	]);
 });
 
 test('multi-line pseudo selector', function() {
-  return assert.compileTo('body {\n	a:hover,\n	span:hover {\n		text-decoration: underline;\n	}\n}', 'body a:hover,\nbody span:hover {\n	text-decoration: underline;\n}');
+	assert.compileTo([
+		'body {',
+		'	a:hover,',
+		'	span:hover {',
+		'		text-decoration: underline;',
+		'	}',
+		'}',
+	], [
+		'body a:hover,',
+		'body span:hover {',
+		'	text-decoration: underline;',
+		'}',
+	]);
 });
 
 test('functional pseudo selector', function() {
-  return assert.compileTo('a:nth-child(2n+1) {\n	text-decoration: underline;\n}', 'a:nth-child(2n+1) {\n	text-decoration: underline;\n}');
+	assert.compileTo([
+		'a:nth-child(2n+1) {',
+		'	text-decoration: underline;',
+		'}',
+	], [
+		'a:nth-child(2n+1) {',
+		'	text-decoration: underline;',
+		'}',
+	]);
 });
 
 test('functional pseudo selector with identifier', function() {
-  return assert.compileTo('a:nth-child(odd) {\n	text-decoration: underline;\n}', 'a:nth-child(odd) {\n	text-decoration: underline;\n}');
+	assert.compileTo([
+		'a:nth-child(odd) {',
+		'	text-decoration: underline;',
+		'}',
+	], [
+		'a:nth-child(odd) {',
+		'	text-decoration: underline;',
+		'}',
+	]);
 });
 
 test('negation selector', function() {
-  return assert.compileTo('a:not(.link) {\n	text-decoration: none;\n}', 'a:not(.link) {\n	text-decoration: none;\n}');
+	assert.compileTo([
+		'a:not(.link) {',
+		'	text-decoration: none;',
+		'}',
+	], [
+		'a:not(.link) {',
+		'	text-decoration: none;',
+		'}',
+	]);
 });
 
 suite('property');
 
 test('starred property', function() {
-  return assert.compileTo('body {\n	*zoom: 1;\n}', 'body {\n	*zoom: 1;\n}');
+	assert.compileTo([
+		'body {',
+		'	*zoom: 1;',
+		'}',
+	], [
+		'body {',
+		'	*zoom: 1;',
+		'}',
+	]);
 });
 
 test('!important', function() {
-  return assert.compileTo('body {\n	width: auto !important;\n}', 'body {\n	width: auto !important;\n}');
+	assert.compileTo([
+		'body {',
+		'	width: auto !important;',
+		'}',
+	], [
+		'body {',
+		'	width: auto !important;',
+		'}',
+	]);
 });
 
 test('without trailing semicolon', function() {
-  return assert.compileTo('body {\n	margin: 0\n}', 'body {\n	margin: 0;\n}');
+	assert.compileTo([
+		'body {',
+		'	margin: 0',
+		'}',
+	], [
+		'body {',
+		'	margin: 0;',
+		'}',
+	]);
 });
 
 test('with multiple trailing semicolons', function() {
-  return assert.compileTo('body {\n	margin: 0;;\n}', 'body {\n	margin: 0;\n}');
+	assert.compileTo([
+		'body {',
+		'	margin: 0;;',
+		'}',
+	], [
+		'body {',
+		'	margin: 0;',
+		'}',
+	]);
 });
 
 test('with multiple trailing ; interspersed with spaces', function() {
-  return assert.compileTo('body {\n	margin: 0; ;\n}', 'body {\n	margin: 0;\n}');
+	assert.compileTo([
+		'body {',
+		'	margin: 0; ;',
+		'}',
+	], [
+		'body {',
+		'	margin: 0;',
+		'}',
+	]);
 });
 
 test('with trailing ; and !important', function() {
-  return assert.compileTo('body {\n	margin: 0 !important;\n}', 'body {\n	margin: 0 !important;\n}');
+	assert.compileTo([
+		'body {',
+		'	margin: 0 !important;',
+		'}',
+	], [
+		'body {',
+		'	margin: 0 !important;',
+		'}',
+	]);
 });
 
 suite('ruleset');
 
 test('remove empty ruleset', function() {
-  return assert.compileTo('body {\n	$width = 980px;\n}', '');
+	assert.compileTo([
+		'body {}',
+	], [
+		'',
+	]);
 });
 
 suite('assignment');
 
 test('variables are case-sensitive', function() {
-  return assert.compileTo('$width = 960px;\n$Width = 480px;\nbody {\n	width: $width;\n}', 'body {\n	width: 960px;\n}');
+	assert.compileTo([
+		'$width = 960px;',
+		'$Width = 480px;',
+		'body {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 960px;',
+		'}',
+	]);
 });
 
 test('?= after =', function() {
-  return assert.compileTo('$width = 960px;\n$width ?= 480px;\nbody {\n	width: $width;\n}', 'body {\n	width: 960px;\n}');
+	assert.compileTo([
+		'$width = 960px;',
+		'$width ?= 480px;',
+		'body {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 960px;',
+		'}',
+	]);
 });
 
 test('lone ?= ', function() {
-  return assert.compileTo('$width ?= 480px;\nbody {\n	width: $width;\n}', 'body {\n	width: 480px;\n}');
+	assert.compileTo([
+		'$width ?= 480px;',
+		'body {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 480px;',
+		'}',
+	]);
+});
+
+test('+=', function() {
+	assert.compileTo([
+		'$width = 480px;',
+		'$width += 100px;',
+		'body {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 580px;',
+		'}',
+	]);
 });
 
 suite('identifier');
 
 test('starting with a dash', function() {
-  return assert.compileTo('body {\n	-webkit-box-sizing: border-box;\n}', 'body {\n	-webkit-box-sizing: border-box;\n}');
+	assert.compileTo([
+		'body {',
+		'	-webkit-box-sizing: border-box;',
+		'}',
+	], [
+		'body {',
+		'	-webkit-box-sizing: border-box;',
+		'}',
+	]);
 });
 
 test('not allow starting with double-dash', function() {
-  return assert.failAt('body {\n	--webkit-box-sizing: border-box;\n}', 2, 3);
+	assert.failAt([
+		'body {',
+		'	--webkit-box-sizing: border-box;',
+		'}',
+	], {line: 2, column: 3});
 });
 
 test('interpolate identifier', function() {
-  return assert.compileTo('$name = star;\n.icon-$name {\n	float: left;\n}', '.icon-star {\n	float: left;\n}');
+	assert.compileTo([
+		'$name = star;',
+		'.icon-$name {',
+		'	float: left;',
+		'}',
+	], [
+		'.icon-star {',
+		'	float: left;',
+		'}',
+	]);
 });
 
 test('interpolate number', function() {
-  return assert.compileTo('$num = 12;\n.icon-$num {\n	float: left;\n}', '.icon-12 {\n	float: left;\n}');
+	assert.compileTo([
+		'$num = 12;',
+		'.icon-$num {',
+		'	float: left;',
+		'}',
+	], [
+		'.icon-12 {',
+		'	float: left;',
+		'}',
+	]);
 });
 
 test('interpolate string', function() {
-  return assert.compileTo('$name = \'star\';\n.icon-$name {\n	float: left;\n}', '.icon-star {\n	float: left;\n}');
+	assert.compileTo([
+		'$name = "star";',
+		'.icon-$name {',
+		'	float: left;',
+		'}',
+	], [
+		'.icon-star {',
+		'	float: left;',
+		'}',
+	]);
 });
 
-test('interpolate list', function() {
-  return assert.compileTo('$name = star span;\n.icon-$name {\n	float: left;\n}', '.icon-star span {\n	float: left;\n}');
-});
-
-test('not allow interpolating mixin', function() {
-  return assert.failAt('$name = @mixin {\n	body {\n		margin: auto;\n	}\n};\n.icon-$name {\n	float: left;\n}', 6, 7);
+test('not allow interpolating function', function() {
+	assert.failAt([
+		'$name = @function {',
+		'	body {',
+		'		margin: auto;',
+		'	}',
+		'};',
+		'.icon-$name {',
+		'	float: left;',
+		'}',
+	], {line: 6, column: 7});
 });
 
 test('interpolate multiple variables', function() {
-  return assert.compileTo('$size = big;\n$name = star;\n.icon-$size$name {\n	float: left;\n}', '.icon-bigstar {\n	float: left;\n}');
+	assert.compileTo([
+		'$size = big;',
+		'$name = star;',
+		'.icon-$size$name {',
+		'	float: left;',
+		'}',
+	], [
+		'.icon-bigstar {',
+		'	float: left;',
+		'}',
+	]);
 });
 
 test('interpolation consists only two variables', function() {
-  return assert.compileTo('$prop = border;\n$pos = -left;\nbody {\n	$prop$pos: solid;\n}', 'body {\n	border-left: solid;\n}');
+	assert.compileTo([
+		'$prop = border;',
+		'$pos = -left;',
+		'body {',
+		'	$prop$pos: solid;',
+		'}',
+	], [
+		'body {',
+		'	border-left: solid;',
+		'}',
+	]);
 });
 
 test('braced interpolation', function() {
-  return assert.compileTo('$prop = border;\nbody {\n	{$prop}: solid;\n}', 'body {\n	border: solid;\n}');
+	assert.compileTo([
+		'$prop = border;',
+		'body {',
+		'	{$prop}: solid;',
+		'}',
+	], [
+		'body {',
+		'	border: solid;',
+		'}',
+	]);
 });
 
 test('contain dangling dash', function() {
-  return assert.compileTo('$prop = border;\n$pos = left;\nbody {\n	{$prop}-$pos: solid;\n}', 'body {\n	border-left: solid;\n}');
+	assert.compileTo([
+		'$prop = border;',
+		'$pos = left;',
+		'body {',
+		'	{$prop}-$pos: solid;',
+		'}',
+	], [
+		'body {',
+		'	border-left: solid;',
+		'}',
+	]);
+});
+
+test('contain double dangling dashes', function() {
+	assert.compileTo([
+		'$module = icon;',
+		'$name = star;',
+		'.{$module}--{$name} {',
+		'	display: inline-block;',
+		'}',
+	], [
+		'.icon--star {',
+		'	display: inline-block;',
+		'}',
+	]);
 });
 
 test('start with dangling dash', function() {
-  return assert.compileTo('$prefix = moz;\n$prop = box-sizing;\nbody {\n	-{$prefix}-$prop: border-box;\n}', 'body {\n	-moz-box-sizing: border-box;\n}');
+	assert.compileTo([
+		'$prefix = moz;',
+		'$prop = box-sizing;',
+		'body {',
+		'	-{$prefix}-$prop: border-box;',
+		'}',
+	], [
+		'body {',
+		'	-moz-box-sizing: border-box;',
+		'}',
+	]);
 });
 
 suite('string');
 
 test('single-quoted string with escaped quote', function() {
-  return assert.compileTo('a {\n	content: \'"a\\\'\';\n}', 'a {\n	content: \'"a\\\'\';\n}');
+	assert.compileTo([
+		'a {',
+		'	content: \'"a\\\'\';',
+		'}',
+	], [
+		'a {',
+		'	content: \'"a\\\'\';',
+		'}',
+	]);
 });
 
 test('empty single-quoted string', function() {
-  return assert.compileTo('a {\n	content: \'\';\n}', 'a {\n	content: \'\';\n}');
+	assert.compileTo([
+		'a {',
+		'	content: \'\';',
+		'}',
+	], [
+		'a {',
+		'	content: \'\';',
+		'}',
+	]);
 });
 
 test('not interpolating single-quoted string', function() {
-  return assert.compileTo('a {\n	content: \'a $var\';\n}', 'a {\n	content: \'a $var\';\n}');
+	assert.compileTo([
+		'a {',
+		'	content: \'a $var\';',
+		'}',
+	], [
+		'a {',
+		'	content: \'a $var\';',
+		'}',
+	]);
 });
 
 test('double-quoted string with escaped quote', function() {
-  return assert.compileTo('a {\n	content: "\'a0\\"";\n}', 'a {\n	content: "\'a0\\"";\n}');
+	assert.compileTo([
+		'a {',
+		'	content: "\'a0\\"";',
+		'}',
+	], [
+		'a {',
+		'	content: "\'a0\\"";',
+		'}',
+	]);
 });
 
 test('empty double-quoted string', function() {
-  return assert.compileTo('a {\n	content: "";\n}', 'a {\n	content: "";\n}');
+	assert.compileTo([
+		'a {',
+		'	content: "";',
+		'}',
+	], [
+		'a {',
+		'	content: "";',
+		'}',
+	]);
 });
 
 test('interpolate identifier', function() {
-  return assert.compileTo('$name = guest;\na {\n	content: "hello $name";\n}', 'a {\n	content: "hello guest";\n}');
+	assert.compileTo([
+		'$name = guest;',
+		'a {',
+		'	content: "hello $name";',
+		'}',
+	], [
+		'a {',
+		'	content: "hello guest";',
+		'}',
+	]);
 });
 
 test('interpolate single-quoted string', function() {
-  return assert.compileTo('$name = \'guest\';\na {\n	content: "hello $name";\n}', 'a {\n	content: "hello guest";\n}');
+	assert.compileTo([
+		'$name = \'guest\';',
+		'a {',
+		'	content: "hello $name";',
+		'}',
+	], [
+		'a {',
+		'	content: "hello guest";',
+		'}',
+	]);
 });
 
 test('interpolate double-quoted string', function() {
-  return assert.compileTo('$name = "guest";\na {\n	content: "hello $name";\n}', 'a {\n	content: "hello guest";\n}');
+	assert.compileTo([
+		'$name = "guest";',
+		'a {',
+		'	content: "hello $name";',
+		'}',
+	], [
+		'a {',
+		'	content: "hello guest";',
+		'}',
+	]);
 });
 
-test('interpolate list', function() {
-  return assert.compileTo('$name = john doe;\na {\n	content: "hello $name";\n}', 'a {\n	content: "hello john doe";\n}');
-});
-
-test('not allow interpolating mixin', function() {
-  return assert.failAt('$name = @mixin {\n	body {\n		margin: auto;\n	}\n};\na {\n	content: "hello $name";\n}', 7, 18);
+test('not allow interpolating function', function() {
+	assert.failAt([
+		'$name = @function {',
+		'	body {',
+		'		margin: auto;',
+		'	}',
+		'};',
+		'a {',
+		'	content: "hello $name";',
+		'}',
+	], {line: 7, column: 18});
 });
 
 test('contain braced variable', function() {
-  return assert.compileTo('$chapter = 4;\nfigcaption {\n	content: "Figure {$chapter}-12";\n}', 'figcaption {\n	content: "Figure 4-12";\n}');
+	assert.compileTo([
+		'$chapter = 4;',
+		'figcaption {',
+		'	content: "Figure {$chapter}-12";',
+		'}',
+	], [
+		'figcaption {',
+		'	content: "Figure 4-12";',
+		'}',
+	]);
 });
 
 test('escape braced variable', function() {
-  return assert.compileTo('figcaption {\n	content: "Figure \\{\\$chapter}-12";\n}', 'figcaption {\n	content: "Figure \\{\\$chapter}-12";\n}');
+	assert.compileTo([
+		'figcaption {',
+		'	content: "Figure \\{\\$chapter}-12";',
+		'}',
+	], [
+		'figcaption {',
+		'	content: "Figure \\{\\$chapter}-12";',
+		'}',
+	]);
 });
 
 test('contain braces but not variable', function() {
-  return assert.compileTo('$chapter = 4;\nfigcaption {\n	content: "Figure {chapter}-12";\n}', 'figcaption {\n	content: "Figure {chapter}-12";\n}');
+	assert.compileTo([
+		'$chapter = 4;',
+		'figcaption {',
+		'	content: "Figure {chapter}-12";',
+		'}',
+	], [
+		'figcaption {',
+		'	content: "Figure {chapter}-12";',
+		'}',
+	]);
 });
 
 test('escape double quotes', function() {
-  return assert.compileTo('$str = \'"\\""\';\na {\n	content: "$str";\n}', 'a {\n	content: "\\"\\"\\"";\n}');
+	assert.compileTo([
+		'$str = \'"\\""\';',
+		'a {',
+		'	content: "$str";',
+		'}',
+	], [
+		'a {',
+		'	content: "\\"\\"\\"";',
+		'}',
+	]);
 });
 
 suite('number');
 
 test('fraction', function() {
-  return assert.compileTo('body {\n	line-height: 1.24;\n}', 'body {\n	line-height: 1.24;\n}');
+	assert.compileTo([
+		'body {',
+		'	line-height: 1.24;',
+		'}',
+	], [
+		'body {',
+		'	line-height: 1.24;',
+		'}',
+	]);
 });
 
 test('fraction without whole number part', function() {
-  return assert.compileTo('body {\n	line-height: .24;\n}', 'body {\n	line-height: 0.24;\n}');
+	assert.compileTo([
+		'body {',
+		'	line-height: .24;',
+		'}',
+	], [
+		'body {',
+		'	line-height: 0.24;',
+		'}',
+	]);
 });
 
 suite('percentage');
 
 test('percentage', function() {
-  return assert.compileTo('body {\n	width: 33.33%;\n}', 'body {\n	width: 33.33%;\n}');
+	assert.compileTo([
+		'body {',
+		'	width: 33.33%;',
+		'}',
+	], [
+		'body {',
+		'	width: 33.33%;',
+		'}',
+	]);
 });
 
 suite('dimension');
 
 test('time', function() {
-  return assert.compileTo('body {\n	-webkit-transition-duration: .24s;\n}', 'body {\n	-webkit-transition-duration: 0.24s;\n}');
+	assert.compileTo([
+		'body {',
+		'	-webkit-transition-duration: .24s;',
+		'}',
+	], [
+		'body {',
+		'	-webkit-transition-duration: 0.24s;',
+		'}',
+	]);
 });
 
 suite('url()');
 
 test('url contains protocol', function() {
-  return assert.compileTo('a {\n	content: url(http://example.com/icon.png?size=small+big);\n}', 'a {\n	content: url(http://example.com/icon.png?size=small+big);\n}');
+	assert.compileTo([
+		'a {',
+		'	content: url(http://example.com/icon.png?size=small+big);',
+		'}',
+	], [
+		'a {',
+		'	content: url(http://example.com/icon.png?size=small+big);',
+		'}',
+	]);
 });
 
 test('url is string', function() {
-  return assert.compileTo('a {\n	content: url(\'icon.png\');\n}', 'a {\n	content: url(\'icon.png\');\n}');
+	assert.compileTo([
+		'a {',
+		'	content: url("icon.png");',
+		'}',
+	], [
+		'a {',
+		'	content: url("icon.png");',
+		'}',
+	]);
 });
 
 suite('color');
 
 test('3-digit #rgb', function() {
-  return assert.compileTo('body {\n	color: #000;\n}', 'body {\n	color: #000;\n}');
+	assert.compileTo([
+		'body {',
+		'	color: #000;',
+		'}',
+	], [
+		'body {',
+		'	color: #000;',
+		'}',
+	]);
 });
 
 test('6-digit #rgb', function() {
-  return assert.compileTo('body {\n	color: #ff1234;\n}', 'body {\n	color: #ff1234;\n}');
+	assert.compileTo([
+		'body {',
+		'	color: #ff1234;',
+		'}',
+	], [
+		'body {',
+		'	color: #ff1234;',
+		'}',
+	]);
+});
+
+suite('call');
+
+test('single argument', function() {
+	assert.compileTo([
+		'a {',
+		'	content: attr(href);',
+		'}',
+	], [
+		'a {',
+		'	content: attr(href);',
+		'}',
+	]);
+});
+
+test('multiple arguments', function() {
+	assert.compileTo([
+		'a {',
+		'	content: counters(item, ".");',
+		'}',
+	], [
+		'a {',
+		'	content: counters(item, ".");',
+		'}',
+	]);
 });
 
 suite('function');
 
-test('single argument', function() {
-  return assert.compileTo('a {\n	content: attr(href);\n}', 'a {\n	content: attr(href);\n}');
+test('no params', function() {
+	assert.compileTo([
+		'$width = @function {',
+		'	@return 960px;',
+		'};',
+		'',
+		'body {',
+		'	width: $width();',
+		'}',
+	], [
+		'body {',
+		'	width: 960px;',
+		'}',
+	]);
 });
 
-test('multiple arguments', function() {
-  return assert.compileTo('a {\n	content: counters(item, \'.\');\n}', 'a {\n	content: counters(item, \'.\');\n}');
+test('not allow undefined function', function() {
+	assert.failAt([
+		'body {',
+		'	width: $width();',
+		'}',
+	], {line: 2, column: 9});
+});
+
+test('not allow non-function to be called', function() {
+	assert.failAt([
+		'$width = 960px;',
+		'',
+		'body {',
+		'	width: $width();',
+		'}',
+	], {line: 4, column: 9});
+});
+
+test('not allow using @return outside @function', function() {
+	assert.failAt([
+		'body {',
+		'	@return 1;',
+		'}',
+	], {line: 2, column: 2});
+});
+
+test('call function multiple times', function() {
+	assert.compileTo([
+		'$get-value = @function {',
+		'	@return $value;',
+		'};',
+		'',
+		'body {',
+		'	$value = 960px;',
+		'	width: $get-value();',
+		'',
+		'	$value = 400px;',
+		'	height: $get-value();',
+		'}',
+		'',
+	], [
+		'body {',
+		'	width: 960px;',
+		'	height: 400px;',
+		'}',
+	]);
+});
+
+test('specify parameter', function() {
+	assert.compileTo([
+		'$width = @function $width {',
+		'	@return $width;',
+		'};',
+		'',
+		'body {',
+		'	width: $width(960px);',
+		'}',
+	], [
+		'body {',
+		'	width: 960px;',
+		'}',
+	]);
+});
+
+test('specify default parameter', function() {
+	assert.compileTo([
+		'$width = @function $width = 960px {',
+		'	@return $width;',
+		'};',
+		'',
+		'body {',
+		'	width: $width();',
+		'}',
+	], [
+		'body {',
+		'	width: 960px;',
+		'}',
+	]);
+});
+
+test('specify default parameter, overriden', function() {
+	assert.compileTo([
+		'$width = @function $width = 960px {',
+		'	@return $width;',
+		'};',
+		'',
+		'body {',
+		'	width: $width(400px);',
+		'}',
+	], [
+		'body {',
+		'	width: 400px;',
+		'}',
+	]);
+});
+
+test('under-specify arguments', function() {
+	assert.compileTo([
+		'$margin = @function $h, $v {',
+		'	@return $h $v;',
+		'};',
+		'',
+		'body {',
+		'	margin: $margin(20px);',
+		'}',
+	], [
+		'body {',
+		'	margin: 20px null;',
+		'}',
+	]);
+});
+
+test('rest argument', function() {
+	assert.compileTo([
+		'$add = @function ...$numbers {',
+		'	$sum = 0;',
+		'	@for $number in $numbers {',
+		'		$sum = $sum + $number;',
+		'	}',
+		'	@return $sum;',
+		'};',
+		'',
+		'body {',
+		'	width: $add(1, 2, 3, 4);',
+		'}',
+	], [
+		'body {',
+		'	width: 10;',
+		'}',
+	]);
+});
+
+test('ignore rules under @return', function() {
+	assert.compileTo([
+		'$width = @function {',
+		'	$width = 960px;',
+		'	@return $width;',
+		'',
+		'	$width = 400px;',
+		'	@return $width;',
+		'};',
+		'',
+		'body {',
+		'	width: $width();',
+		'}',
+	], [
+		'body {',
+		'	width: 960px;',
+		'}',
+	]);
+});
+
+test('ignore block rules', function() {
+	assert.compileTo([
+		'$width = @function {',
+		'	div {',
+		'		margin: 0;',
+		'	}',
+		'',
+		'	$width = 960px;',
+		'	@return $width;',
+		'};',
+		'',
+		'body {',
+		'	width: $width();',
+		'}',
+	], [
+		'body {',
+		'	width: 960px;',
+		'}',
+	]);
+});
+
+test('implicit @return', function() {
+	assert.compileTo([
+		'$width = @function {',
+		'	div {',
+		'		margin: 0;',
+		'	}',
+		'};',
+		'',
+		'body {',
+		'	width: $width();',
+		'}',
+	], [
+		'body {',
+		'	width: null;',
+		'}',
+	]);
+});
+
+test('$arguments', function() {
+	assert.compileTo([
+		'$arguments = @function {',
+		'	@return $arguments;',
+		'};',
+		'',
+		'body {',
+		'	-foo: $arguments(foo, bar)',
+		'}',
+	], [
+		'body {',
+		'	-foo: foo, bar;',
+		'}',
+	]);
+});
+
+test('not modify arguments by direct assignment', function() {
+	assert.compileTo([
+		'$modify = @function $param {',
+		'	$param = 1;',
+		'	@return $param;',
+		'};',
+		'',
+		'body {',
+		'	$arg = 0;',
+		'	-foo: $modify($arg) $arg;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1 0;',
+		'}',
+	]);
 });
 
 suite('list');
 
 test('space-separated list', function() {
-  return assert.compileTo('body {\n	margin: 10px 0 30px;\n}', 'body {\n	margin: 10px 0 30px;\n}');
+	assert.compileTo([
+		'body {',
+		'	margin: 10px 0 30px;',
+		'}',
+	], [
+		'body {',
+		'	margin: 10px 0 30px;',
+		'}',
+	]);
 });
 
 test('comma-separated list', function() {
-  return assert.compileTo('body {\n	font-family: font1, font2, font3;\n}', 'body {\n	font-family: font1, font2, font3;\n}');
+	assert.compileTo([
+		'body {',
+		'	font-family: font1, font2, font3;',
+		'}',
+	], [
+		'body {',
+		'	font-family: font1, font2, font3;',
+		'}',
+	]);
 });
 
 test('slash-separated list', function() {
-  return assert.compileTo('body {\n	font: 14px/1.2;\n}', 'body {\n	font: 14px/1.2;\n}');
+	assert.compileTo([
+		'body {',
+		'	font: 14px/1.2;',
+		'}',
+	], [
+		'body {',
+		'	font: 14px/1.2;',
+		'}',
+	]);
 });
 
 test('mix-separated list', function() {
-  return assert.compileTo('body {\n	font: normal 12px/1.25 font1, font2;\n}', 'body {\n	font: normal 12px/1.25 font1, font2;\n}');
+	assert.compileTo([
+		'body {',
+		'	font: normal 12px/1.25 font1, font2;',
+		'}',
+	], [
+		'body {',
+		'	font: normal 12px/1.25 font1, font2;',
+		'}',
+	]);
 });
 
 suite('addition');
 
 test('number + number', function() {
-  return assert.compileTo('body {\n	-foo: 1 + 1;\n}', 'body {\n	-foo: 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 + 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2;',
+		'}',
+	]);
 });
 
 test('number + percentage', function() {
-  return assert.compileTo('body {\n	-foo: 1 + 1%;\n}', 'body {\n	-foo: 2%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 + 1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2%;',
+		'}',
+	]);
 });
 
 test('number + dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1 + 1px;\n}', 'body {\n	-foo: 2px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 + 1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2px;',
+		'}',
+	]);
 });
 
-test('number + mixin, not allowed', function() {
-  return assert.failAt('$mixin = @mixin {\n	body {\n		margin: 0;\n	}\n};\nbody {\n	-foo: 1 + $mixin;\n}', 7, 8);
+test('number + function, not allowed', function() {
+	assert.failAt([
+		'$function = @function {',
+		'	body {',
+		'		margin: 0;',
+		'	}',
+		'};',
+		'body {',
+		'	-foo: 1 + $function;',
+		'}',
+	], {line: 7, column: 8});
 });
 
 test('number + string', function() {
-  return assert.compileTo('body {\n	-foo: 1 + \'str\';\n}', 'body {\n	-foo: \'1str\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 + "str";',
+		'}',
+	], [
+		'body {',
+		'	-foo: "1str";',
+		'}',
+	]);
 });
 
 test('percentage + number', function() {
-  return assert.compileTo('body {\n	-foo: 1% + 1;\n}', 'body {\n	-foo: 2%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% + 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2%;',
+		'}',
+	]);
 });
 
 test('percentage + percentage', function() {
-  return assert.compileTo('body {\n	-foo: 1% + 1%;\n}', 'body {\n	-foo: 2%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% + 1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2%;',
+		'}',
+	]);
 });
 
 test('percentage + dimension', function() {
-  return assert.compileTo('body {\n	-foo: 2% + 1px;\n}', 'body {\n	-foo: 3%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 2% + 1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 3%;',
+		'}',
+	]);
 });
 
 test('percentage + string', function() {
-  return assert.compileTo('body {\n	-foo: 2% + \'str\';\n}', 'body {\n	-foo: \'2%str\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 2% + "str";',
+		'}',
+	], [
+		'body {',
+		'	-foo: "2%str";',
+		'}',
+	]);
 });
 
 test('dimension + number', function() {
-  return assert.compileTo('body {\n	-foo: 1px + 1;\n}', 'body {\n	-foo: 2px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px + 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2px;',
+		'}',
+	]);
 });
 
 test('dimension + dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1px + 1px;\n}', 'body {\n	-foo: 2px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px + 1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2px;',
+		'}',
+	]);
 });
 
 test('dimension + dimension, different units', function() {
-  return assert.compileTo('body {\n	-foo: 1em + 1px;\n}', 'body {\n	-foo: 2em;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1em + 1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2em;',
+		'}',
+	]);
 });
 
 test('dimension + identifier', function() {
-  return assert.compileTo('body {\n	-foo: 1px + id;\n}', 'body {\n	-foo: 1pxid;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px + id;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1pxid;',
+		'}',
+	]);
 });
 
 test('dimension + string', function() {
-  return assert.compileTo('body {\n	-foo: 1px + \'str\';\n}', 'body {\n	-foo: \'1pxstr\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px + "str";',
+		'}',
+	], [
+		'body {',
+		'	-foo: "1pxstr";',
+		'}',
+	]);
 });
 
 test('boolean + identifier', function() {
-  return assert.compileTo('body {\n	-foo: true + id;\n}', 'body {\n	-foo: trueid;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: true + id;',
+		'}',
+	], [
+		'body {',
+		'	-foo: trueid;',
+		'}',
+	]);
 });
 
 test('boolean + string', function() {
-  return assert.compileTo('body {\n	-foo: true + \'str\';\n}', 'body {\n	-foo: \'truestr\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: true + "str";',
+		'}',
+	], [
+		'body {',
+		'	-foo: "truestr";',
+		'}',
+	]);
 });
 
 test('identifier + number', function() {
-  return assert.compileTo('body {\n	-foo: id + 1;\n}', 'body {\n	-foo: id1;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: id + 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: id1;',
+		'}',
+	]);
 });
 
 test('identifier + identifier', function() {
-  return assert.compileTo('body {\n	-foo: -webkit + -moz;\n}', 'body {\n	-foo: -webkit-moz;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: -webkit + -moz;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -webkit-moz;',
+		'}',
+	]);
 });
 
 test('identifier + dimension', function() {
-  return assert.compileTo('body {\n	-foo: id + 1px;\n}', 'body {\n	-foo: id1px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: id + 1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: id1px;',
+		'}',
+	]);
 });
 
 test('identifier + boolean', function() {
-  return assert.compileTo('body {\n	-foo: id + true;\n}', 'body {\n	-foo: idtrue;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: id + true;',
+		'}',
+	], [
+		'body {',
+		'	-foo: idtrue;',
+		'}',
+	]);
 });
 
 test('identifier + str', function() {
-  return assert.compileTo('body {\n	-foo: id + \'str\';\n}', 'body {\n	-foo: \'idstr\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: id + "str";',
+		'}',
+	], [
+		'body {',
+		'	-foo: "idstr";',
+		'}',
+	]);
 });
 
 test('string + number', function() {
-  return assert.compileTo('body {\n	-foo: \'str\' + 1;\n}', 'body {\n	-foo: \'str1\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: "str" + 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: "str1";',
+		'}',
+	]);
 });
 
 test('string + percentage', function() {
-  return assert.compileTo('body {\n	-foo: \'str\' + 1%;\n}', 'body {\n	-foo: \'str1%\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: "str" + 1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: "str1%";',
+		'}',
+	]);
 });
 
 test('string + dimension', function() {
-  return assert.compileTo('body {\n	-foo: \'str\' + 1px;\n}', 'body {\n	-foo: \'str1px\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: "str" + 1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: "str1px";',
+		'}',
+	]);
 });
 
 test('string + boolean', function() {
-  return assert.compileTo('body {\n	-foo: \'str\' + false;\n}', 'body {\n	-foo: \'strfalse\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: "str" + false;',
+		'}',
+	], [
+		'body {',
+		'	-foo: "strfalse";',
+		'}',
+	]);
 });
 
 test('string + identifier', function() {
-  return assert.compileTo('body {\n	-foo: \'str\' + id;\n}', 'body {\n	-foo: \'strid\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: "str" + id;',
+		'}',
+	], [
+		'body {',
+		'	-foo: "strid";',
+		'}',
+	]);
 });
 
 test('string + string', function() {
-  return assert.compileTo('body {\n	-foo: \'foo\' + \'bar\';\n}', 'body {\n	-foo: \'foobar\';\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: "foo" + "bar";',
+		'}',
+	], [
+		'body {',
+		'	-foo: "foobar";',
+		'}',
+	]);
 });
 
 test('string + string, different quotes', function() {
-  return assert.compileTo('body {\n	-foo: "foo" + \'bar\';\n}', 'body {\n	-foo: "foobar";\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: "foo" + \'bar\';',
+		'}',
+	], [
+		'body {',
+		'	-foo: "foobar";',
+		'}',
+	]);
 });
 
 test('number+number', function() {
-  return assert.compileTo('body {\n	-foo: 1+1;\n}', 'body {\n	-foo: 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1+1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2;',
+		'}',
+	]);
 });
 
 test('number+ number', function() {
-  return assert.compileTo('body {\n	-foo: 1+ 1;\n}', 'body {\n	-foo: 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1+ 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2;',
+		'}',
+	]);
 });
 
 suite('subtraction');
 
 test('number - number', function() {
-  return assert.compileTo('body {\n	-foo: 1 - 1;\n}', 'body {\n	-foo: 0;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 - 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0;',
+		'}',
+	]);
 });
 
 test('number - percentage', function() {
-  return assert.compileTo('body {\n	-foo: 1 - 1%;\n}', 'body {\n	-foo: 0%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 - 1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0%;',
+		'}',
+	]);
 });
 
 test('number - dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1 - 2px;\n}', 'body {\n	-foo: -1px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 - 2px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -1px;',
+		'}',
+	]);
 });
 
 test('percentage - number', function() {
-  return assert.compileTo('body {\n	-foo: 1% - 2;\n}', 'body {\n	-foo: -1%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% - 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -1%;',
+		'}',
+	]);
 });
 
 test('percentage - percentage', function() {
-  return assert.compileTo('body {\n	-foo: 1% - 1%;\n}', 'body {\n	-foo: 0%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% - 1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0%;',
+		'}',
+	]);
 });
 
 test('percentage - dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1% - 2px;\n}', 'body {\n	-foo: -1%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% - 2px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -1%;',
+		'}',
+	]);
 });
 
 test('dimension - number', function() {
-  return assert.compileTo('body {\n	-foo: 1px - 1;\n}', 'body {\n	-foo: 0px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px - 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0px;',
+		'}',
+	]);
 });
 
 test('dimension - dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1px - 1px;\n}', 'body {\n	-foo: 0px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px - 1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0px;',
+		'}',
+	]);
 });
 
 test('dimension - dimension, different units', function() {
-  return assert.compileTo('body {\n	-foo: 1em - 2px;\n}', 'body {\n	-foo: -1em;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1em - 2px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -1em;',
+		'}',
+	]);
 });
 
 test('number-number', function() {
-  return assert.compileTo('body {\n	-foo: 1-1;\n}', 'body {\n	-foo: 0;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1-1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0;',
+		'}',
+	]);
 });
 
 test('number- number', function() {
-  return assert.compileTo('body {\n	-foo: 1- 1;\n}', 'body {\n	-foo: 0;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1- 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0;',
+		'}',
+	]);
 });
 
 suite('multiplication');
 
 test('number * number', function() {
-  return assert.compileTo('body {\n	-foo: 1 * 2;\n}', 'body {\n	-foo: 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 * 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2;',
+		'}',
+	]);
 });
 
 test('number * percentage', function() {
-  return assert.compileTo('body {\n	-foo: 2 * 1%;\n}', 'body {\n	-foo: 2%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 2 * 1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2%;',
+		'}',
+	]);
 });
 
 test('number * dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1 * 2px;\n}', 'body {\n	-foo: 2px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 * 2px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2px;',
+		'}',
+	]);
 });
 
 test('percentage * number', function() {
-  return assert.compileTo('body {\n	-foo: 1% * 2;\n}', 'body {\n	-foo: 2%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% * 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2%;',
+		'}',
+	]);
 });
 
 test('percentage * percentage', function() {
-  return assert.compileTo('body {\n	-foo: 1% * 1%;\n}', 'body {\n	-foo: 1%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% * 1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1%;',
+		'}',
+	]);
 });
 
 test('percentage * dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1% * 2px;\n}', 'body {\n	-foo: 2%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% * 2px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2%;',
+		'}',
+	]);
 });
 
 test('dimension * number', function() {
-  return assert.compileTo('body {\n	-foo: 1px * 1;\n}', 'body {\n	-foo: 1px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px * 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1px;',
+		'}',
+	]);
 });
 
 test('dimension * dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1px * 1px;\n}', 'body {\n	-foo: 1px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px * 1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1px;',
+		'}',
+	]);
 });
 
 test('dimension * dimension, different units', function() {
-  return assert.compileTo('body {\n	-foo: 1em * 2px;\n}', 'body {\n	-foo: 2em;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1em * 2px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2em;',
+		'}',
+	]);
 });
 
 test('number*number', function() {
-  return assert.compileTo('body {\n	-foo: 1*2;\n}', 'body {\n	-foo: 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1*2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2;',
+		'}',
+	]);
 });
 
 test('number* number', function() {
-  return assert.compileTo('body {\n	-foo: 1* 2;\n}', 'body {\n	-foo: 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1* 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2;',
+		'}',
+	]);
 });
 
 test('number *number', function() {
-  return assert.compileTo('body {\n	-foo: 1 *2;\n}', 'body {\n	-foo: 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 *2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2;',
+		'}',
+	]);
 });
 
 suite('division');
 
 test('number / number', function() {
-  return assert.compileTo('body {\n	-foo: 1 / 2;\n}', 'body {\n	-foo: 0.5;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 / 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0.5;',
+		'}',
+	]);
 });
 
 test('number / 0, not allowed', function() {
-  return assert.failAt('body {\n	-foo: 1 / 0;\n}', 2, 12);
+	assert.failAt([
+		'body {',
+		'	-foo: 1 / 0;',
+		'}',
+	], {line: 2, column: 12});
 });
 
 test('number / number, result in fraction', function() {
-  return assert.compileTo('body {\n	-foo: 1 / 3;\n}', 'body {\n	-foo: 0.333;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 / 3;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0.333;',
+		'}',
+	]);
 });
 
 test('number / percentage', function() {
-  return assert.compileTo('body {\n	-foo: 2 / 1%;\n}', 'body {\n	-foo: 2%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 2 / 1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2%;',
+		'}',
+	]);
 });
 
 test('number / 0%, not allowed', function() {
-  return assert.failAt('body {\n	-foo: 1 / 0%;\n}', 2, 12);
+	assert.failAt([
+		'body {',
+		'	-foo: 1 / 0%;',
+		'}',
+	], {line: 2, column: 12});
 });
 
 test('number / dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1 / 2px;\n}', 'body {\n	-foo: 0.5px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 / 2px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0.5px;',
+		'}',
+	]);
 });
 
 test('number / 0px, not allowed', function() {
-  return assert.failAt('body {\n	-foo: 1 / 0px;\n}', 2, 12);
+	assert.failAt([
+		'body {',
+		'	-foo: 1 / 0px;',
+		'}',
+	], {line: 2, column: 12});
 });
 
 test('percentage / number', function() {
-  return assert.compileTo('body {\n	-foo: 1% / 2;\n}', 'body {\n	-foo: 0.5%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% / 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0.5%;',
+		'}',
+	]);
 });
 
 test('percentage / 0, not allowed', function() {
-  return assert.failAt('body {\n	-foo: 1% / 0;\n}', 2, 13);
+	assert.failAt([
+		'body {',
+		'	-foo: 1% / 0;',
+		'}',
+	], {line: 2, column: 13});
 });
 
 test('percentage / percentage', function() {
-  return assert.compileTo('body {\n	-foo: 1% / 1%;\n}', 'body {\n	-foo: 1%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% / 1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1%;',
+		'}',
+	]);
 });
 
 test('percentage / 0%, not allowed', function() {
-  return assert.failAt('body {\n	-foo: 1% / 0%;\n}', 2, 13);
+	assert.failAt([
+		'body {',
+		'	-foo: 1% / 0%;',
+		'}',
+	], {line: 2, column: 13});
 });
 
 test('percentage / dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1% / 2px;\n}', 'body {\n	-foo: 0.5%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1% / 2px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0.5%;',
+		'}',
+	]);
 });
 
 test('percentage / 0px, not allowed', function() {
-  return assert.failAt('body {\n	-foo: 1% / 0px;\n}', 2, 13);
+	assert.failAt([
+		'body {',
+		'	-foo: 1% / 0px;',
+		'}',
+	], {line: 2, column: 13});
 });
 
 test('dimension / number', function() {
-  return assert.compileTo('body {\n	-foo: 1px / 1;\n}', 'body {\n	-foo: 1px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px / 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1px;',
+		'}',
+	]);
 });
 
 test('dimension / 0, not allowed', function() {
-  return assert.failAt('body {\n	-foo: 1px / 0;\n}', 2, 14);
+	assert.failAt([
+		'body {',
+		'	-foo: 1px / 0;',
+		'}',
+	], {line: 2, column: 14});
 });
 
 test('dimension / percentage', function() {
-  return assert.compileTo('body {\n	-foo: 1px / 2%;\n}', 'body {\n	-foo: 0.5px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px / 2%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0.5px;',
+		'}',
+	]);
 });
 
 test('dimension / 0%, not allowed', function() {
-  return assert.failAt('body {\n	-foo: 1px / 0%;\n}', 2, 14);
+	assert.failAt([
+		'body {',
+		'	-foo: 1px / 0%;',
+		'}',
+	], {line: 2, column: 14});
 });
 
 test('dimension / dimension', function() {
-  return assert.compileTo('body {\n	-foo: 1px / 1px;\n}', 'body {\n	-foo: 1px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px / 1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1px;',
+		'}',
+	]);
 });
 
 test('dimension / dimension, different units', function() {
-  return assert.compileTo('body {\n	-foo: 1em / 2px;\n}', 'body {\n	-foo: 0.5em;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1em / 2px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0.5em;',
+		'}',
+	]);
 });
 
 test('dimension / 0px, not allowed', function() {
-  return assert.failAt('body {\n	-foo: 1px / 0px;\n}', 2, 14);
+	assert.failAt([
+		'body {',
+		'	-foo: 1px / 0px;',
+		'}',
+	], {line: 2, column: 14});
 });
 
 test('number/ number', function() {
-  return assert.compileTo('body {\n	-foo: 1/ 2;\n}', 'body {\n	-foo: 0.5;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1/ 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0.5;',
+		'}',
+	]);
 });
 
 test('number /number', function() {
-  return assert.compileTo('body {\n	-foo: 1 /2;\n}', 'body {\n	-foo: 0.5;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 /2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0.5;',
+		'}',
+	]);
+});
+
+suite('modulus');
+
+test('number % number', function() {
+	assert.compileTo([
+		'body {',
+		'	-foo: 3 % 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1;',
+		'}',
+	]);
+});
+
+test('percentage % number', function() {
+	assert.compileTo([
+		'body {',
+		'	-foo: 4% % 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0%;',
+		'}',
+	]);
+});
+
+test('dimension % number', function() {
+	assert.compileTo([
+		'body {',
+		'	-foo: 3px % 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1px;',
+		'}',
+	]);
 });
 
 suite('relational');
 
 test('number < number', function() {
-  return assert.compileTo('body {\n	-foo: 1 < 2;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 < 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('number <= number', function() {
-  return assert.compileTo('body {\n	-foo: 2 <= 2;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 2 <= 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('number > number', function() {
-  return assert.compileTo('body {\n	-foo: 2 > 2;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 2 > 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('number >= number', function() {
-  return assert.compileTo('body {\n	-foo: 2 >= 3;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 2 >= 3;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('number >= identifer', function() {
-  return assert.compileTo('body {\n	-foo: 2 >= abc;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 2 >= abc;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('identifer < number', function() {
-  return assert.compileTo('body {\n	-foo: abc < 2;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: abc < 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('identifier < identifier', function() {
-  return assert.compileTo('body {\n	-foo: a < b;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: a < b;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('string > string', function() {
-  return assert.compileTo('body {\n	-foo: \'b\' > \'a\';\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: "b" > "a";',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 suite('equality');
 
 test('is, true', function() {
-  return assert.compileTo('body {\n	-foo: 1 is 1;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 is 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('is, false', function() {
-  return assert.compileTo('body {\n	-foo: 1 is 2;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 is 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('isnt, true', function() {
-  return assert.compileTo('body {\n	-foo: 1 isnt 2;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 isnt 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('isnt, false', function() {
-  return assert.compileTo('body {\n	-foo: 1 isnt 1;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 isnt 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('inclusive range isnt exclusive range', function() {
-  return assert.compileTo('body {\n	-foo: 1..2 isnt 1...2;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1..2 isnt 1...2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 suite('logical');
 
 test('true and false', function() {
-  return assert.compileTo('body {\n	-foo: true and false;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: true and false;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('true and true', function() {
-  return assert.compileTo('body {\n	-foo: true and true;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: true and true;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('false and true', function() {
-  return assert.compileTo('body {\n	-foo: false and true;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: false and true;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('false and false', function() {
-  return assert.compileTo('body {\n	-foo: false and false;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: false and false;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('true or false', function() {
-  return assert.compileTo('body {\n	-foo: true or false;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: true or false;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('true or true', function() {
-  return assert.compileTo('body {\n	-foo: true or true;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: true or true;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('false or true', function() {
-  return assert.compileTo('body {\n	-foo: false or true;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: false or true;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('false or false', function() {
-  return assert.compileTo('body {\n	-foo: false or false;\n}', 'body {\n	-foo: false;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: false or false;',
+		'}',
+	], [
+		'body {',
+		'	-foo: false;',
+		'}',
+	]);
 });
 
 test('true and false or true', function() {
-  return assert.compileTo('body {\n	-foo: true and false or true;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: true and false or true;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 suite('range');
 
 test('natural range', function() {
-  return assert.compileTo('body {\n	-foo: 1..3;\n}', 'body {\n	-foo: 1 2 3;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1..3;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1 2 3;',
+		'}',
+	]);
 });
 
 test('natural exclusive range', function() {
-  return assert.compileTo('body {\n	-foo: 1...3;\n}', 'body {\n	-foo: 1 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1...3;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1 2;',
+		'}',
+	]);
 });
 
 test('reversed range', function() {
-  return assert.compileTo('body {\n	-foo: 3..1;\n}', 'body {\n	-foo: 3 2 1;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 3..1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 3 2 1;',
+		'}',
+	]);
 });
 
 test('reversed exclusive range', function() {
-  return assert.compileTo('body {\n	-foo: 3...1;\n}', 'body {\n	-foo: 3 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 3...1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 3 2;',
+		'}',
+	]);
 });
 
 test('one number range', function() {
-  return assert.compileTo('body {\n	-foo: 1..1;\n}', 'body {\n	-foo: 1;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1..1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1;',
+		'}',
+	]);
 });
 
 test('empty range', function() {
-  return assert.compileTo('body {\n	-foo: 1...1;\n}', 'body {\n	-foo: null;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1...1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: null;',
+		'}',
+	]);
 });
 
 test('percentage range', function() {
-  return assert.compileTo('body {\n	-foo: 0%..2%;\n}', 'body {\n	-foo: 0% 1% 2%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 0%..2%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 0% 1% 2%;',
+		'}',
+	]);
 });
 
 test('dimension range', function() {
-  return assert.compileTo('body {\n	-foo: 100px..102px;\n}', 'body {\n	-foo: 100px 101px 102px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 100px..102px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 100px 101px 102px;',
+		'}',
+	]);
 });
 
 test('mixed range', function() {
-  return assert.compileTo('body {\n	-foo: 1px..3%;\n}', 'body {\n	-foo: 1px 2px 3px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1px..3%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1px 2px 3px;',
+		'}',
+	]);
+});
+
+test('reversed single-number mixed exclusiverange', function() {
+	assert.compileTo([
+		'body {',
+		'	-foo: 2px...1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2px;',
+		'}',
+	]);
 });
 
 test('start number must be numberic', function() {
-  return assert.failAt('body {\n	-foo: a...3;\n}', 2, 8);
+	assert.failAt([
+		'body {',
+		'	-foo: a...3;',
+		'}',
+	], {line: 2, column: 8});
 });
 
 test('end number must be numberic', function() {
-  return assert.failAt('body {\n	-foo: 1..b;\n}', 2, 11);
+	assert.failAt([
+		'body {',
+		'	-foo: 1..b;',
+		'}',
+	], {line: 2, column: 11});
 });
 
 suite('unary');
 
 test('+number', function() {
-  return assert.compileTo('body {\n	-foo: +1;\n}', 'body {\n	-foo: 1;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: +1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1;',
+		'}',
+	]);
 });
 
 test('+percentage', function() {
-  return assert.compileTo('body {\n	-foo: +1%;\n}', 'body {\n	-foo: 1%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: +1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1%;',
+		'}',
+	]);
 });
 
 test('+dimension', function() {
-  return assert.compileTo('body {\n	-foo: +1px;\n}', 'body {\n	-foo: 1px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: +1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 1px;',
+		'}',
+	]);
 });
 
 test('+string, not allowed', function() {
-  return assert.failAt('body {\n	-foo: +\'a\';\n}', 2, 8);
+	assert.failAt([
+		'body {',
+		'	-foo: +"a";',
+		'}',
+	], {line: 2, column: 8});
 });
 
 test('-number', function() {
-  return assert.compileTo('body {\n	-foo: -1;\n}', 'body {\n	-foo: -1;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: -1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -1;',
+		'}',
+	]);
 });
 
 test('-percentage', function() {
-  return assert.compileTo('body {\n	-foo: -1%;\n}', 'body {\n	-foo: -1%;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: -1%;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -1%;',
+		'}',
+	]);
 });
 
 test('-dimension', function() {
-  return assert.compileTo('body {\n	-foo: -1px;\n}', 'body {\n	-foo: -1px;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: -1px;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -1px;',
+		'}',
+	]);
+});
+
+test('-variable, value is number', function() {
+	assert.compileTo([
+		'$foo = 1px;',
+		'body {',
+		'	-foo: -$foo;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -1px;',
+		'}',
+	]);
+});
+
+test('-variable, value is identifier', function() {
+	assert.compileTo([
+		'$foo = foo;',
+		'body {',
+		'	-foo: -$foo;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -foo;',
+		'}',
+	]);
 });
 
 suite('expression');
 
 test('number + number - number', function() {
-  return assert.compileTo('body {\n	-foo: 1 + 2 - 1;\n}', 'body {\n	-foo: 2;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 + 2 - 1;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2;',
+		'}',
+	]);
 });
 
 test('number / number * number', function() {
-  return assert.compileTo('body {\n	-foo: 1 / 2 * -3;\n}', 'body {\n	-foo: -1.5;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 / 2 * -3;',
+		'}',
+	], [
+		'body {',
+		'	-foo: -1.5;',
+		'}',
+	]);
 });
 
 test('number + number * number', function() {
-  return assert.compileTo('body {\n	-foo: 1 + 2 * 3;\n}', 'body {\n	-foo: 7;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 + 2 * 3;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 7;',
+		'}',
+	]);
 });
 
 test('(number + number) * number', function() {
-  return assert.compileTo('body {\n	-foo: (1 + 2) * 3;\n}', 'body {\n	-foo: 9;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: (1 + 2) * 3;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 9;',
+		'}',
+	]);
 });
 
 test('number > number is boolean', function() {
-  return assert.compileTo('body {\n	-foo: -1 > 1 is false;\n}', 'body {\n	-foo: true;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: -1 > 1 is false;',
+		'}',
+	], [
+		'body {',
+		'	-foo: true;',
+		'}',
+	]);
 });
 
 test('number + number .. number * number', function() {
-  return assert.compileTo('body {\n	-foo: 1 + 1 .. 2 * 2;\n}', 'body {\n	-foo: 2 3 4;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 1 + 1 .. 2 * 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 2 3 4;',
+		'}',
+	]);
 });
 
 test('list containing empty range', function() {
-  return assert.compileTo('body {\n	-foo: 3 1 + 1 ... 1 * 2;\n}', 'body {\n	-foo: 3 null;\n}');
+	assert.compileTo([
+		'body {',
+		'	-foo: 3 1 + 1 ... 1 * 2;',
+		'}',
+	], [
+		'body {',
+		'	-foo: 3 null;',
+		'}',
+	]);
 });
 
 suite('media query');
 
+
 test('media type', function() {
-  return assert.compileTo('@media print {\n	body {\n		width: auto;\n	}\n}', '@media print {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media print {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media print {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('media type with prefix', function() {
-  return assert.compileTo('@media not screen {\n	body {\n		width: auto;\n	}\n}', '@media not screen {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media not screen {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media not screen {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('media feature', function() {
-  return assert.compileTo('@media (max-width: 980px) {\n	body {\n		width: auto;\n	}\n}', '@media (max-width: 980px) {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media (max-width: 980px) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media (max-width: 980px) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('media feature without value', function() {
-  return assert.compileTo('@media (color) {\n	body {\n		width: auto;\n	}\n}', '@media (color) {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media (color) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media (color) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('media query', function() {
-  return assert.compileTo('@media only screen and (color) {\n	body {\n		width: auto;\n	}\n}', '@media only screen and (color) {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media only screen and (color) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media only screen and (color) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('nest media query under media query', function() {
-  return assert.compileTo('@media screen {\n	@media (color) {\n		body {\n			width: auto;\n		}\n	}\n}', '@media screen and (color) {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media screen {',
+		'	@media (color) {',
+		'		body {',
+		'			width: auto;',
+		'		}',
+		'	}',
+		'}',
+	], [
+		'@media screen and (color) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('nest media query list under media query', function() {
-  return assert.compileTo('@media screen {\n	@media (max-width: 980px), (max-width: 560px) {\n		body {\n			width: auto;\n		}\n	}\n}', '@media\nscreen and (max-width: 980px),\nscreen and (max-width: 560px) {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media screen {',
+		'	@media (max-width: 980px), (max-width: 560px) {',
+		'		body {',
+		'			width: auto;',
+		'		}',
+		'	}',
+		'}',
+	], [
+		'@media',
+		'screen and (max-width: 980px),',
+		'screen and (max-width: 560px) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('nest media query under media query list', function() {
-  return assert.compileTo('@media screen, print {\n	@media (max-width: 980px) {\n		body {\n			width: auto;\n		}\n	}\n}', '@media\nscreen and (max-width: 980px),\nprint and (max-width: 980px) {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media screen, print {',
+		'	@media (max-width: 980px) {',
+		'		body {',
+		'			width: auto;',
+		'		}',
+		'	}',
+		'}',
+	], [
+		'@media',
+		'screen and (max-width: 980px),',
+		'print and (max-width: 980px) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('nest media query list under media query list', function() {
-  return assert.compileTo('@media screen, print {\n	@media (max-width: 980px), (max-width: 560px) {\n		body {\n			width: auto;\n		}\n	}\n}', '@media\nscreen and (max-width: 980px),\nscreen and (max-width: 560px),\nprint and (max-width: 980px),\nprint and (max-width: 560px) {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media screen, print {',
+		'	@media (max-width: 980px), (max-width: 560px) {',
+		'		body {',
+		'			width: auto;',
+		'		}',
+		'	}',
+		'}',
+	], [
+		'@media',
+		'screen and (max-width: 980px),',
+		'screen and (max-width: 560px),',
+		'print and (max-width: 980px),',
+		'print and (max-width: 560px) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('deeply nest media query', function() {
-  return assert.compileTo('@media screen {\n	body {\n		width: auto;\n		@media (color) {\n			@media (monochrome) {\n				height: auto;\n			}\n		}\n\n		div {\n			height: auto;\n		}\n	}\n\n	@media (monochrome) {\n		p {\n			margin: 0;\n		}\n	}\n}', '@media screen {\n	body {\n		width: auto;\n	}\n		body div {\n			height: auto;\n		}\n}\n	@media screen and (color) and (monochrome) {\n		body {\n			height: auto;\n		}\n	}\n	@media screen and (monochrome) {\n		p {\n			margin: 0;\n		}\n	}');
+	assert.compileTo([
+		'@media screen {',
+		'	body {',
+		'		width: auto;',
+		'		@media (color) {',
+		'			@media (monochrome) {',
+		'				height: auto;',
+		'			}',
+		'		}',
+		'',
+		'		div {',
+		'			height: auto;',
+		'		}',
+		'	}',
+		'',
+		'	@media (monochrome) {',
+		'		p {',
+		'			margin: 0;',
+		'		}',
+		'	}',
+		'}',
+	], [
+		'@media screen {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'		body div {',
+		'			height: auto;',
+		'		}',
+		'}',
+		'	@media screen and (color) and (monochrome) {',
+		'		body {',
+		'			height: auto;',
+		'		}',
+		'	}',
+		'	@media screen and (monochrome) {',
+		'		p {',
+		'			margin: 0;',
+		'		}',
+		'	}',
+	]);
 });
 
 test('interpolating media query', function() {
-  return assert.compileTo('$qry = \'not  screen\';\n@media $qry {\n	body {\n		width: auto;\n	}\n}', '@media not screen {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'$qry = "not  screen";',
+		'@media $qry {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media not screen {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('interpolating media query into media query', function() {
-  return assert.compileTo('$qry = \'( max-width: 980px )\';\n@media screen and $qry {\n	body {\n		width: auto;\n	}\n}', '@media screen and (max-width: 980px) {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'$qry = "( max-width: 980px )";',
+		'@media screen and $qry {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media screen and (max-width: 980px) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('interpolating media query into media query list', function() {
-  return assert.compileTo('$qry1 = \' only screen  and (max-width: 980px) \';\n$qry2 = \'(max-width: 560px)\';\n@media $qry1, $qry2 {\n	body {\n		width: auto;\n	}\n}', '@media\nonly screen and (max-width: 980px),\n(max-width: 560px) {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'$qry1 = " only screen  and (max-width: 980px) ";',
+		'$qry2 = "(max-width: 560px)";',
+		'@media $qry1, $qry2 {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media',
+		'only screen and (max-width: 980px),',
+		'(max-width: 560px) {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('interpolating identifier', function() {
-  return assert.compileTo('$qry = screen;\n@media $qry {\n	body {\n		width: auto;\n	}\n}', '@media screen {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'$qry = screen;',
+		'@media $qry {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media screen {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('not allow interpolating invalid media query', function() {
-  return assert.failAt('$qry = \'screen @\';\n@media $qry {\n	body {\n		width: auto;\n	}\n}', 2, 8);
+	assert.failAt([
+		'$qry = "screen @";',
+		'@media $qry {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], {line: 2, column: 8});
 });
 
 test('allow nesting media type', function() {
-  return assert.compileTo('@media screen {\n	@media not print {\n		body {\n			width: auto;\n		}\n	}\n}', '@media screen and not print {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'@media screen {',
+		'	@media not print {',
+		'		body {',
+		'			width: auto;',
+		'		}',
+		'	}',
+		'}',
+	], [
+		'@media screen and not print {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 suite('@media');
 
 test('not allow containing properties at root level', function() {
-  return assert.failAt('@media screen {\n	width: auto;\n}', 1, 1);
+	assert.failAt([
+		'@media screen {',
+		'	width: auto;',
+		'}',
+	], {line: 1, column: 1});
 });
 
 test('nest inside ruleset', function() {
-  return assert.compileTo('body {\n	@media screen {\n		width: auto;\n	}\n}', '@media screen {\n	body {\n		width: auto;\n	}\n}');
+	assert.compileTo([
+		'body {',
+		'	@media screen {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'@media screen {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	]);
 });
 
 test('remove empty @media', function() {
-  return assert.compileTo('@media screen {\n	body {\n		$width = 980px;\n	}\n}', '');
+	assert.compileTo([
+		'@media screen {',
+		'	body {',
+		'		$width = 980px;',
+		'	}',
+		'}',
+	], [
+		'',
+	]);
 });
 
 suite('@import');
 
 test('import with string', function() {
-  return assert.compileTo({
-    'base.roo': 'body {\n	margin: 0;\n}'
-  }, '@import \'base\';', 'body {\n	margin: 0;\n}');
+	assert.compileTo({imports: {
+		'base.roo': [
+			'body {',
+			'	margin: 0;',
+			'}',
+		]
+	}}, [
+		'@import "base";',
+	], [
+		'body {',
+		'	margin: 0;',
+		'}',
+	]);
 });
 
 test('import with url()', function() {
-  return assert.compileTo('@import url(base);', '@import url(base);');
+	assert.compileTo([
+		'@import url(base);',
+	], [
+		'@import url(base);',
+	]);
 });
 
 test('import with url starting with protocol', function() {
-  return assert.compileTo('@import \'http://example.com/style\';', '@import \'http://example.com/style\';');
+	assert.compileTo([
+		'@import "http://example.com/style";',
+	], [
+		'@import "http://example.com/style";',
+	]);
 });
 
 test('import with media query', function() {
-  return assert.compileTo('@import \'base\' screen;', '@import \'base\' screen;');
+	assert.compileTo([
+		'@import "base" screen;',
+	], [
+		'@import "base" screen;',
+	]);
 });
 
 test('nest under ruleset', function() {
-  return assert.compileTo({
-    'base.roo': 'body {\n	margin: 0;\n}'
-  }, 'html {\n	@import \'base\';\n}', 'html body {\n	margin: 0;\n}');
+	assert.compileTo({imports: {
+		'base.roo': [
+			'body {',
+			'	margin: 0;',
+			'}',
+		]
+	}}, [
+		'html {',
+		'	@import "base";',
+		'}',
+	], [
+		'html body {',
+		'	margin: 0;',
+		'}',
+	]);
 });
 
 test('recursively import', function() {
-  return assert.compileTo({
-    'reset.roo': 'body {\n	margin: 0;\n}',
-    'button.roo': '@import \'reset\';\n\n.button {\n	display: inline-block;\n}'
-  }, '@import \'button\';', 'body {\n	margin: 0;\n}\n\n.button {\n	display: inline-block;\n}');
+	assert.compileTo({imports: {
+		'reset.roo': [
+			'body {',
+			'	margin: 0;',
+			'}',
+		],
+		'button.roo': [
+			'@import "reset";',
+			'',
+			'.button {',
+			'	display: inline-block;',
+			'}',
+		]
+	}}, [
+		'@import "button";',
+	], [
+		'body {',
+		'	margin: 0;',
+		'}',
+		'',
+		'.button {',
+		'	display: inline-block;',
+		'}',
+	]);
 });
 
 test('import same file multiple times', function() {
-  return assert.compileTo({
-    'reset.roo': 'body {\n	margin: 0;\n}',
-    'button.roo': '@import \'reset\';\n\n.button {\n	display: inline-block;\n}',
-    'tabs.roo': '@import \'reset\';\n\n.tabs {\n	overflow: hidden;\n}'
-  }, '@import \'button\';\n@import \'tabs\';', 'body {\n	margin: 0;\n}\n\n.button {\n	display: inline-block;\n}\n\n.tabs {\n	overflow: hidden;\n}');
+	assert.compileTo({imports: {
+		'reset.roo': [
+			'body {',
+			'	margin: 0;',
+			'}',
+		],
+		'button.roo': [
+			'@import "reset";',
+			'',
+			'.button {',
+			'	display: inline-block;',
+			'}',
+		],
+		'tabs.roo': [
+			'@import "reset";',
+			'',
+			'.tabs {',
+			'	overflow: hidden;',
+			'}',
+		]
+	}}, [
+		'@import "button";',
+		'@import "tabs";',
+	], [
+		'body {',
+		'	margin: 0;',
+		'}',
+		'',
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'.tabs {',
+		'	overflow: hidden;',
+		'}',
+	]);
 });
 
 test('recursively import files of the same directory', function() {
-  return assert.compileTo({
-    'tabs/tab.roo': '.tab {\n	float: left;\n}',
-    'tabs/index.roo': '@import \'tab\';\n\n.tabs {\n	overflow: hidden;\n}'
-  }, '@import \'tabs/index\';', '.tab {\n	float: left;\n}\n\n.tabs {\n	overflow: hidden;\n}');
+	assert.compileTo({imports: {
+		'tabs/tab.roo': [
+			'.tab {',
+			'	float: left;',
+			'}',
+		],
+		'tabs/index.roo': [
+			'@import "tab";',
+			'',
+			'.tabs {',
+			'	overflow: hidden;',
+			'}',
+		]
+	}}, [
+		'@import "tabs/index";',
+	], [
+		'.tab {',
+		'	float: left;',
+		'}',
+		'',
+		'.tabs {',
+		'	overflow: hidden;',
+		'}',
+	]);
 });
 
 test('recursively import files of different directories', function() {
-  return assert.compileTo({
-    'reset.roo': 'body {\n	margin: 0;\n}',
-    'tabs/index.roo': '@import \'../reset\';\n\n.tabs {\n	overflow: hidden;\n}'
-  }, '@import \'tabs/index\';', 'body {\n	margin: 0;\n}\n\n.tabs {\n	overflow: hidden;\n}');
+	assert.compileTo({imports: {
+		'reset.roo': [
+			'body {',
+			'	margin: 0;',
+			'}',
+		],
+		'tabs/index.roo': [
+			'@import "../reset";',
+			'',
+			'.tabs {',
+			'	overflow: hidden;',
+			'}',
+		]
+	}}, [
+		'@import "tabs/index";',
+	], [
+		'body {',
+		'	margin: 0;',
+		'}',
+		'',
+		'.tabs {',
+		'	overflow: hidden;',
+		'}',
+	]);
 });
 
 test('import empty file', function() {
-  return assert.compileTo({
-    'var.roo': '$width = 980px;'
-  }, '@import \'var\';\n\nbody {\n	width: $width;\n}', 'body {\n	width: 980px;\n}');
+	assert.compileTo({imports: {
+		'var.roo': [
+			'$width = 980px;',
+		]
+	}}, [
+		'@import "var";',
+		'',
+		'body {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 980px;',
+		'}',
+	]);
 });
 
 test('not importing file with variables in the path', function() {
-  return assert.compileTo('$path = \'tabs\';\n@import $path;', '@import \'tabs\';');
+	assert.compileTo([
+		'$path = "tabs";',
+		'@import $path;',
+	], [
+		'@import "tabs";',
+	]);
 });
 
 test('not allow importing file has syntax error', function() {
-  return assert.failAt({
-    'base.roo': 'body # {\n	margin: 0;\n}'
-  }, '@import \'base\';', 1, 7, 'base.roo');
+	assert.failAt({imports: {
+		'base.roo': [
+			'body # {',
+			'	margin: 0;',
+			'}',
+		]
+	}}, [
+		'@import "base";',
+	], {line: 1, column: 7, fileName: 'base.roo'});
 });
 
 suite('@extend');
 
 test('extend selector', function() {
-  return assert.compileTo('.button {\n	display: inline-block;\n}\n\n#submit {\n	@extend .button;\n}', '.button,\n#submit {\n	display: inline-block;\n}');
+	assert.compileTo([
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+	], [
+		'.button,',
+		'#submit {',
+		'	display: inline-block;',
+		'}',
+	]);
 });
 
 test('ignore following selectors', function() {
-  return assert.compileTo('.button {\n	display: inline-block;\n}\n\n#submit {\n	@extend .button;\n}\n\n.button {\n	display: block;\n}', '.button,\n#submit {\n	display: inline-block;\n}\n\n.button {\n	display: block;\n}');
+	assert.compileTo([
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+		'',
+		'.button {',
+		'	display: block;',
+		'}',
+	], [
+		'.button,',
+		'#submit {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'.button {',
+		'	display: block;',
+		'}',
+	]);
 });
 
 test('extend selector containing nested selector', function() {
-  return assert.compileTo('.button {\n	.icon {\n		display:block;\n	}\n}\n\n#submit {\n	@extend .button;\n}', '.button .icon,\n#submit .icon {\n	display: block;\n}');
+	assert.compileTo([
+		'.button {',
+		'	.icon {',
+		'		display:block;',
+		'	}',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+	], [
+		'.button .icon,',
+		'#submit .icon {',
+		'	display: block;',
+		'}',
+	]);
 });
 
 test('extend selector containing deeply nested selector', function() {
-  return assert.compileTo('.button {\n	.icon {\n		img {\n			display:block;\n		}\n	}\n}\n\n#submit {\n	@extend .button;\n}', '.button .icon img,\n#submit .icon img {\n	display: block;\n}');
+	assert.compileTo([
+		'.button {',
+		'	.icon {',
+		'		img {',
+		'			display:block;',
+		'		}',
+		'	}',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+	], [
+		'.button .icon img,',
+		'#submit .icon img {',
+		'	display: block;',
+		'}',
+	]);
 });
 
 test('extend compound selector', function() {
-  return assert.compileTo('.button {\n	& .icon {\n		float: left;\n	}\n}\n\n#submit .icon {\n	@extend .button .icon;\n}', '.button .icon,\n#submit .icon {\n	float: left;\n}');
+	assert.compileTo([
+		'.button {',
+		'	& .icon {',
+		'		float: left;',
+		'	}',
+		'}',
+		'',
+		'#submit .icon {',
+		'	@extend .button .icon;',
+		'}',
+	], [
+		'.button .icon,',
+		'#submit .icon {',
+		'	float: left;',
+		'}',
+	]);
 });
 
 test('extend selector containing nested & selector', function() {
-  return assert.compileTo('.button {\n	& .icon {\n		float: left;\n	}\n}\n\n#submit {\n	@extend .button;\n}', '.button .icon,\n#submit .icon {\n	float: left;\n}');
+	assert.compileTo([
+		'.button {',
+		'	& .icon {',
+		'		float: left;',
+		'	}',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+	], [
+		'.button .icon,',
+		'#submit .icon {',
+		'	float: left;',
+		'}',
+	]);
 });
 
 test('extend selector with selector list', function() {
-  return assert.compileTo('.button .icon {\n	float: left;\n}\n\n#submit .icon, #reset .icon {\n	@extend .button .icon;\n}', '.button .icon,\n#submit .icon,\n#reset .icon {\n	float: left;\n}');
+	assert.compileTo([
+		'.button .icon {',
+		'	float: left;',
+		'}',
+		'',
+		'#submit .icon, #reset .icon {',
+		'	@extend .button .icon;',
+		'}',
+	], [
+		'.button .icon,',
+		'#submit .icon,',
+		'#reset .icon {',
+		'	float: left;',
+		'}',
+	]);
 });
 
 test('deeply extend selector', function() {
-  return assert.compileTo('.button {\n	display: inline-block;\n}\n\n.large-button {\n	@extend .button;\n	display: block;\n}\n\n#submit {\n	@extend .large-button;\n}', '.button,\n.large-button,\n#submit {\n	display: inline-block;\n}\n\n.large-button,\n#submit {\n	display: block;\n}');
+	assert.compileTo([
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'.large-button {',
+		'	@extend .button;',
+		'	display: block;',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .large-button;',
+		'}',
+	], [
+		'.button,',
+		'.large-button,',
+		'#submit {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'.large-button,',
+		'#submit {',
+		'	display: block;',
+		'}',
+	]);
 });
 
 test('extend selector under the same ruleset', function() {
-  return assert.compileTo('.button {\n	.icon {\n		float: left;\n	}\n\n	.large-icon {\n		@extend .button .icon;\n	}\n}', '.button .icon,\n.button .large-icon {\n	float: left;\n}');
+	assert.compileTo([
+		'.button {',
+		'	.icon {',
+		'		float: left;',
+		'	}',
+		'',
+		'	.large-icon {',
+		'		@extend .button .icon;',
+		'	}',
+		'}',
+	], [
+		'.button .icon,',
+		'.button .large-icon {',
+		'	float: left;',
+		'}',
+	]);
 });
 
+// don't want to test for selector equalify when extending
+// since this scenario might never happen
+// resulting in duplicate selectors is acceptable
 test('extend self', function() {
-  return assert.compileTo('.button {\n	.icon {\n		float: left;\n	}\n\n	.icon {\n		@extend .button .icon;\n		display: block;\n	}\n}', '.button .icon,\n.button .icon {\n	float: left;\n}\n\n.button .icon,\n.button .icon {\n	display: block;\n}');
+	assert.compileTo([
+		'.button {',
+		'	.icon {',
+		'		float: left;',
+		'	}',
+		'',
+		'	.icon {',
+		'		@extend .button .icon;',
+		'		display: block;',
+		'	}',
+		'}',
+	], [
+		'.button .icon,',
+		'.button .icon {',
+		'	float: left;',
+		'}',
+		'',
+		'.button .icon,',
+		'.button .icon {',
+		'	display: block;',
+		'}',
+	]);
 });
 
 test('extend by multiple selectors', function() {
-  return assert.compileTo('.button {\n	display: inline-block;\n}\n\n#submit {\n	@extend .button;\n}\n\n#reset {\n	@extend .button;\n}', '.button,\n#submit,\n#reset {\n	display: inline-block;\n}');
+	assert.compileTo([
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+		'',
+		'#reset {',
+		'	@extend .button;',
+		'}',
+	], [
+		'.button,',
+		'#submit,',
+		'#reset {',
+		'	display: inline-block;',
+		'}',
+	]);
 });
 
 test('extend selector containing selector by multiple selectors', function() {
-  return assert.compileTo('.button {\n	.icon {\n		float: left;\n	}\n}\n\n#submit {\n	@extend .button;\n}\n\n#reset {\n	@extend .button;\n}', '.button .icon,\n#submit .icon,\n#reset .icon {\n	float: left;\n}');
+	assert.compileTo([
+		'.button {',
+		'	.icon {',
+		'		float: left;',
+		'	}',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+		'',
+		'#reset {',
+		'	@extend .button;',
+		'}',
+	], [
+		'.button .icon,',
+		'#submit .icon,',
+		'#reset .icon {',
+		'	float: left;',
+		'}',
+	]);
 });
 
 test('extend selector containg nested @media', function() {
-  return assert.compileTo('.button {\n	display: inline-block;\n	@media screen {\n		display: block;\n	}\n	@media print {\n		display: none;\n	}\n}\n\n#submit {\n	@extend .button;\n}', '.button,\n#submit {\n	display: inline-block;\n}\n	@media screen {\n		.button,\n		#submit {\n			display: block;\n		}\n	}\n	@media print {\n		.button,\n		#submit {\n			display: none;\n		}\n	}');
+	assert.compileTo([
+		'.button {',
+		'	display: inline-block;',
+		'	@media screen {',
+		'		display: block;',
+		'	}',
+		'	@media print {',
+		'		display: none;',
+		'	}',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+	], [
+		'.button,',
+		'#submit {',
+		'	display: inline-block;',
+		'}',
+		'	@media screen {',
+		'		.button,',
+		'		#submit {',
+		'			display: block;',
+		'		}',
+		'	}',
+		'	@media print {',
+		'		.button,',
+		'		#submit {',
+		'			display: none;',
+		'		}',
+		'	}',
+	]);
 });
 
 test('extend selector nested under same @media', function() {
-  return assert.compileTo('.button {\n	display: inline-block;\n}\n\n@media print {\n	.button {\n		display: block;\n	}\n}\n\n@media not screen {\n	.button {\n		display: block;\n	}\n\n	#submit {\n		@extend .button;\n	}\n}', '.button {\n	display: inline-block;\n}\n\n@media print {\n	.button {\n		display: block;\n	}\n}\n\n@media not screen {\n	.button,\n	#submit {\n		display: block;\n	}\n}');
+	assert.compileTo([
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'@media print {',
+		'	.button {',
+		'		display: block;',
+		'	}',
+		'}',
+		'',
+		'@media not screen {',
+		'	.button {',
+		'		display: block;',
+		'	}',
+		'',
+		'	#submit {',
+		'		@extend .button;',
+		'	}',
+		'}',
+	], [
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'@media print {',
+		'	.button {',
+		'		display: block;',
+		'	}',
+		'}',
+		'',
+		'@media not screen {',
+		'	.button,',
+		'	#submit {',
+		'		display: block;',
+		'	}',
+		'}',
+	]);
 });
 
 test('extend selector nested under @media with same media query', function() {
-  return assert.compileTo('@media screen {\n	.button {\n		display: inline-block;\n	}\n\n	@media (color), (monochrome) {\n		.button {\n			display: block;\n		}\n	}\n\n	@media (color) {\n		.button {\n			display: inline-block;\n		}\n	}\n}\n\n@media screen and (color) {\n	#submit {\n		@extend .button;\n	}\n}', '@media screen {\n	.button {\n		display: inline-block;\n	}\n}\n	@media\n	screen and (color),\n	screen and (monochrome) {\n		.button {\n			display: block;\n		}\n	}\n	@media screen and (color) {\n		.button,\n		#submit {\n			display: inline-block;\n		}\n	}');
+	assert.compileTo([
+		'@media screen {',
+		'	.button {',
+		'		display: inline-block;',
+		'	}',
+		'',
+		'	@media (color), (monochrome) {',
+		'		.button {',
+		'			display: block;',
+		'		}',
+		'	}',
+		'',
+		'	@media (color) {',
+		'		.button {',
+		'			display: inline-block;',
+		'		}',
+		'	}',
+		'}',
+		'',
+		'@media screen and (color) {',
+		'	#submit {',
+		'		@extend .button;',
+		'	}',
+		'}',
+	], [
+		'@media screen {',
+		'	.button {',
+		'		display: inline-block;',
+		'	}',
+		'}',
+		'	@media',
+		'	screen and (color),',
+		'	screen and (monochrome) {',
+		'		.button {',
+		'			display: block;',
+		'		}',
+		'	}',
+		'	@media screen and (color) {',
+		'		.button,',
+		'		#submit {',
+		'			display: inline-block;',
+		'		}',
+		'	}',
+	]);
 });
 
 test('ignore following @media', function() {
-  return assert.compileTo('@media screen and (color) {\n	.button {\n		display: inline-block;\n	}\n}\n\n@media screen and (color) {\n	#submit {\n		@extend .button;\n	}\n}\n\n@media screen and (color) {\n	.button {\n		display: block;\n	}\n}', '@media screen and (color) {\n	.button,\n	#submit {\n		display: inline-block;\n	}\n}\n\n@media screen and (color) {\n	.button {\n		display: block;\n	}\n}');
+	assert.compileTo([
+		'@media screen and (color) {',
+		'	.button {',
+		'		display: inline-block;',
+		'	}',
+		'}',
+		'',
+		'@media screen and (color) {',
+		'	#submit {',
+		'		@extend .button;',
+		'	}',
+		'}',
+		'',
+		'@media screen and (color) {',
+		'	.button {',
+		'		display: block;',
+		'	}',
+		'}',
+	], [
+		'@media screen and (color) {',
+		'	.button,',
+		'	#submit {',
+		'		display: inline-block;',
+		'	}',
+		'}',
+		'',
+		'@media screen and (color) {',
+		'	.button {',
+		'		display: block;',
+		'	}',
+		'}',
+	]);
 });
 
 test('extend selector in the imported file', function() {
-  return assert.compileTo({
-    'button.roo': '.button {\n	display: inline-block;\n}'
-  }, '@import \'button\';\n\n#submit {\n	@extend .button;\n}', '.button,\n#submit {\n	display: inline-block;\n}');
+	assert.compileTo({imports: {
+		'button.roo': [
+			'.button {',
+			'	display: inline-block;',
+			'}',
+		]
+	}}, [
+		'@import "button";',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+	], [
+		'.button,',
+		'#submit {',
+		'	display: inline-block;',
+		'}',
+	]);
 });
 
 test('not extending selector in the importing file', function() {
-  return assert.compileTo({
-    'button.roo': '#submit {\n	@extend .button;\n	display: block;\n}'
-  }, '.button {\n	display: inline-block;\n}\n\n@import \'button\';', '.button {\n	display: inline-block;\n}\n\n#submit {\n	display: block;\n}');
-});
-
-suite('@extend-all');
-
-test('extend simple selector', function() {
-  return assert.compileTo('.button.active {\n	display: inline-block;\n}\n\n#submit {\n	@extend-all .button;\n	border: 1px solid;\n}', '.button.active,\n#submit.active {\n	display: inline-block;\n}\n\n#submit {\n	border: 1px solid;\n}');
-});
-
-test('extend multiple simple selectors', function() {
-  return assert.compileTo('.menu .menu {\n	position: absolute;\n}\n\n.my-menu {\n	@extend-all .menu;\n}', '.menu .menu,\n.my-menu .my-menu {\n	position: absolute;\n}');
-});
-
-test('extend compond selector', function() {
-  return assert.compileTo('.button.active .icon {\n	float: left;\n}\n\n#submit {\n	@extend-all .button;\n}', '.button.active .icon,\n#submit.active .icon {\n	float: left;\n}');
-});
-
-test('extend selector list', function() {
-  return assert.compileTo('.button.active .icon,\n.tab.active .icon {\n	float: left;\n}\n\n#submit {\n	@extend-all .button;\n}', '.button.active .icon,\n.tab.active .icon,\n#submit.active .icon {\n	float: left;\n}');
+	assert.compileTo({imports: {
+		'button.roo': [
+			'#submit {',
+			'	@extend .button;',
+			'	display: block;',
+			'}',
+		]
+	}}, [
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'@import "button";',
+	], [
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'#submit {',
+		'	display: block;',
+		'}',
+	]);
 });
 
 suite('@void');
 
 test('unextended ruleset', function() {
-  return assert.compileTo('@void {\n	body {\n		width: auto;\n	}\n}', '');
+	assert.compileTo([
+		'@void {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'',
+	]);
 });
 
 test('extended ruleset', function() {
-  return assert.compileTo('@void {\n	.button {\n		display: inline-block;\n	}\n}\n\n#submit {\n	@extend .button;\n}', '#submit {\n	display: inline-block;\n}');
+	assert.compileTo([
+		'@void {',
+		'	.button {',
+		'		display: inline-block;',
+		'	}',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+	], [
+		'#submit {',
+		'	display: inline-block;',
+		'}',
+	]);
 });
-
 test('extend ruleset inside @void', function() {
-  return assert.compileTo('@void {\n	.button {\n		display: inline-block;\n		.icon {\n			float: left;\n		}\n	}\n\n	.large-button {\n		@extend .button;\n		display: block;\n	}\n}\n\n#submit {\n	@extend .large-button;\n}', '#submit {\n	display: inline-block;\n}\n	#submit .icon {\n		float: left;\n	}\n\n#submit {\n	display: block;\n}');
+	assert.compileTo([
+		'@void {',
+		'	.button {',
+		'		display: inline-block;',
+		'		.icon {',
+		'			float: left;',
+		'		}',
+		'	}',
+		'',
+		'	.large-button {',
+		'		@extend .button;',
+		'		display: block;',
+		'	}',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .large-button;',
+		'}',
+	], [
+		'#submit {',
+		'	display: inline-block;',
+		'}',
+		'	#submit .icon {',
+		'		float: left;',
+		'	}',
+		'',
+		'#submit {',
+		'	display: block;',
+		'}',
+	]);
 });
 
 test('extend ruleset outside @void has no effect', function() {
-  return assert.compileTo('.button {\n	display: inline-block;\n}\n\n@void {\n	.button {\n		display: block;\n	}\n\n	.large-button {\n		@extend .button;\n	}\n}\n\n#submit {\n	@extend .large-button;\n}', '.button {\n	display: inline-block;\n}\n\n#submit {\n	display: block;\n}');
+	assert.compileTo([
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'@void {',
+		'	.button {',
+		'		display: block;',
+		'	}',
+		'',
+		'	.large-button {',
+		'		@extend .button;',
+		'	}',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .large-button;',
+		'}',
+	], [
+		'.button {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'#submit {',
+		'	display: block;',
+		'}',
+	]);
 });
 
 test('nest @import under @void', function() {
-  return assert.compileTo({
-    'button.roo': '.button {\n	display: inline-block;\n}\n\n.large-button {\n	@extend .button;\n	width: 100px;\n}'
-  }, '@void {\n	@import \'button\';\n}\n\n#submit {\n	@extend .large-button;\n}', '#submit {\n	display: inline-block;\n}\n\n#submit {\n	width: 100px;\n}');
+	assert.compileTo({imports: {
+		'button.roo': [
+			'.button {',
+			'	display: inline-block;',
+			'}',
+			'',
+			'.large-button {',
+			'	@extend .button;',
+			'	width: 100px;',
+			'}',
+		]
+	}}, [
+		'@void {',
+		'	@import "button";',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .large-button;',
+		'}',
+	], [
+		'#submit {',
+		'	display: inline-block;',
+		'}',
+		'',
+		'#submit {',
+		'	width: 100px;',
+		'}',
+	]);
 });
 
 suite('@if');
 
 test('true condition', function() {
-  return assert.compileTo('@if true {\n	body {\n		width: auto;\n	}\n}', 'body {\n	width: auto;\n}');
+	assert.compileTo([
+		'@if true {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'body {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('list as true condition', function() {
-  return assert.compileTo('@if \'\', \'\' {\n	body {\n		width: auto;\n	}\n}', 'body {\n	width: auto;\n}');
+	assert.compileTo([
+		'@if "", "" {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'body {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
 test('false condition', function() {
-  return assert.compileTo('@if false {\n	body {\n		width: auto;\n	}\n}', '');
+	assert.compileTo([
+		'@if false {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'',
+		]);
 });
 
 test('0 as false condition', function() {
-  return assert.compileTo('@if 0 {\n	body {\n		width: auto;\n	}\n}', '');
+	assert.compileTo([
+		'@if 0 {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'',
+	]);
 });
 
 test('0% as false condition', function() {
-  return assert.compileTo('@if 0% {\n	body {\n		width: auto;\n	}\n}', '');
+	assert.compileTo([
+		'@if 0% {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'',
+	]);
 });
 
 test('0px as false condition', function() {
-  return assert.compileTo('@if 0px {\n	body {\n		width: auto;\n	}\n}', '');
+	assert.compileTo([
+		'@if 0px {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'',
+	]);
 });
 
 test('empty string as false condition', function() {
-  return assert.compileTo('@if \'\' {\n	body {\n		width: auto;\n	}\n}', '');
+	assert.compileTo([
+		'@if "" {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], [
+		'',
+	]);
 });
 
 test('@else if', function() {
-  return assert.compileTo('body {\n	@if false {\n		width: auto;\n	} @else if true {\n		height: auto;\n	}\n}', 'body {\n	height: auto;\n}');
+	assert.compileTo([
+		'body {',
+		'	@if false {',
+		'		width: auto;',
+		'	} @else if true {',
+		'		height: auto;',
+		'	}',
+		'}',
+	], [
+		'body {',
+		'	height: auto;',
+		'}',
+	]);
 });
 
 test('short-ciruit @else if', function() {
-  return assert.compileTo('body {\n	@if false {\n		width: auto;\n	} @else if false {\n		height: auto;\n	} @else if true {\n		margin: auto;\n	} @else if true {\n		padding: auto;\n	}\n}', 'body {\n	margin: auto;\n}');
+	assert.compileTo([
+		'body {',
+		'	@if false {',
+		'		width: auto;',
+		'	} @else if false {',
+		'		height: auto;',
+		'	} @else if true {',
+		'		margin: auto;',
+		'	} @else if true {',
+		'		padding: auto;',
+		'	}',
+		'}',
+	], [
+		'body {',
+		'	margin: auto;',
+		'}',
+	]);
 });
 
 test('@else', function() {
-  return assert.compileTo('body {\n	@if false {\n		width: auto;\n	} @else {\n		height: auto;\n	}\n}', 'body {\n	height: auto;\n}');
+	assert.compileTo([
+		'body {',
+		'	@if false {',
+		'		width: auto;',
+		'	} @else {',
+		'		height: auto;',
+		'	}',
+		'}',
+	], [
+		'body {',
+		'	height: auto;',
+		'}',
+	]);
 });
 
 test('@else with @else if', function() {
-  return assert.compileTo('body {\n	@if false {\n		width: auto;\n	} @else if false {\n		height: auto;\n	} @else {\n		margin: auto;\n	}\n}', 'body {\n	margin: auto;\n}');
+	assert.compileTo([
+		'body {',
+		'	@if false {',
+		'		width: auto;',
+		'	} @else if false {',
+		'		height: auto;',
+		'	} @else {',
+		'		margin: auto;',
+		'	}',
+		'}',
+	], [
+		'body {',
+		'	margin: auto;',
+		'}',
+	]);
 });
 
 suite('@for');
 
 test('loop natural range', function() {
-  return assert.compileTo('@for $i in 1..3 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-1 {\n	width: 60px;\n}\n\n.span-2 {\n	width: 120px;\n}\n\n.span-3 {\n	width: 180px;\n}');
+	assert.compileTo([
+		'@for $i in 1..3 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-1 {',
+		'	width: 60px;',
+		'}',
+		'',
+		'.span-2 {',
+		'	width: 120px;',
+		'}',
+		'',
+		'.span-3 {',
+		'	width: 180px;',
+		'}',
+	]);
 });
 
 test('loop natural exclusive range', function() {
-  return assert.compileTo('@for $i in 1...3 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-1 {\n	width: 60px;\n}\n\n.span-2 {\n	width: 120px;\n}');
+	assert.compileTo([
+		'@for $i in 1...3 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-1 {',
+		'	width: 60px;',
+		'}',
+		'',
+		'.span-2 {',
+		'	width: 120px;',
+		'}',
+	]);
 });
 
 test('loop one number range', function() {
-  return assert.compileTo('@for $i in 1..1 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-1 {\n	width: 60px;\n}');
+	assert.compileTo([
+		'@for $i in 1..1 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-1 {',
+		'	width: 60px;',
+		'}',
+	]);
 });
 
 test('loop empty range', function() {
-  return assert.compileTo('@for $i in 1...1 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '');
+	assert.compileTo([
+		'@for $i in 1...1 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'',
+	]);
 });
 
 test('loop reversed range', function() {
-  return assert.compileTo('@for $i in 3..1 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-3 {\n	width: 180px;\n}\n\n.span-2 {\n	width: 120px;\n}\n\n.span-1 {\n	width: 60px;\n}');
+	assert.compileTo([
+		'@for $i in 3..1 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-3 {',
+		'	width: 180px;',
+		'}',
+		'',
+		'.span-2 {',
+		'	width: 120px;',
+		'}',
+		'',
+		'.span-1 {',
+		'	width: 60px;',
+		'}',
+	]);
 });
 
 test('loop reversed exclusive range', function() {
-  return assert.compileTo('@for $i in 3...1 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-3 {\n	width: 180px;\n}\n\n.span-2 {\n	width: 120px;\n}');
+	assert.compileTo([
+		'@for $i in 3...1 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-3 {',
+		'	width: 180px;',
+		'}',
+		'',
+		'.span-2 {',
+		'	width: 120px;',
+		'}',
+	]);
 });
 
 test('loop with positive step', function() {
-  return assert.compileTo('@for $i by 2 in 1..4 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-1 {\n	width: 60px;\n}\n\n.span-3 {\n	width: 180px;\n}');
+	assert.compileTo([
+		'@for $i by 2 in 1..4 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-1 {',
+		'	width: 60px;',
+		'}',
+		'',
+		'.span-3 {',
+		'	width: 180px;',
+		'}',
+	]);
 });
 
 test('loop with positive step for reversed range', function() {
-  return assert.compileTo('@for $i by 2 in 3..1 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-3 {\n	width: 180px;\n}\n\n.span-1 {\n	width: 60px;\n}');
+	assert.compileTo([
+		'@for $i by 2 in 3..1 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-3 {',
+		'	width: 180px;',
+		'}',
+		'',
+		'.span-1 {',
+		'	width: 60px;',
+		'}',
+	]);
 });
 
 test('loop with negative step', function() {
-  return assert.compileTo('@for $i by -1 in 1...3 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-2 {\n	width: 120px;\n}\n\n.span-1 {\n	width: 60px;\n}');
+	assert.compileTo([
+		'@for $i by -1 in 1...3 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-2 {',
+		'	width: 120px;',
+		'}',
+		'',
+		'.span-1 {',
+		'	width: 60px;',
+		'}',
+	]);
 });
 
 test('loop with negative step for reversed range', function() {
-  return assert.compileTo('@for $i by -2 in 3..1 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-1 {\n	width: 60px;\n}\n\n.span-3 {\n	width: 180px;\n}');
+	assert.compileTo([
+		'@for $i by -2 in 3..1 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-1 {',
+		'	width: 60px;',
+		'}',
+		'',
+		'.span-3 {',
+		'	width: 180px;',
+		'}',
+	]);
 });
 
 test('not allow step number to be zero', function() {
-  return assert.failAt('@for $i by 0 in 1..3 {\n	body {\n		width: auto;\n	}\n}', 1, 12);
+	assert.failAt([
+		'@for $i by 0 in 1..3 {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], {line: 1, column: 12});
 });
 
 test('only allow step number to be numberic', function() {
-  return assert.failAt('@for $i by a in 1..3 {\n	body {\n		width: auto;\n	}\n}', 1, 12);
+	assert.failAt([
+		'@for $i by a in 1..3 {',
+		'	body {',
+		'		width: auto;',
+		'	}',
+		'}',
+	], {line: 1, column: 12});
 });
 
 test('loop list', function() {
-  return assert.compileTo('$icons = foo bar, qux;\n@for $icon in $icons {\n	.icon-$icon {\n		content: "$icon";\n	}\n}', '.icon-foo {\n	content: "foo";\n}\n\n.icon-bar {\n	content: "bar";\n}\n\n.icon-qux {\n	content: "qux";\n}');
-});
-
-test('loop list with index', function() {
-  return assert.compileTo('@for $icon, $i in foo bar, qux {\n	.icon-$icon {\n		content: "$i $icon";\n	}\n}', '.icon-foo {\n	content: "0 foo";\n}\n\n.icon-bar {\n	content: "1 bar";\n}\n\n.icon-qux {\n	content: "2 qux";\n}');
-});
-
-test('loop list with index with negative step', function() {
-  return assert.compileTo('@for $icon, $i by -1 in foo bar, qux {\n	.icon-$icon {\n		content: "$i $icon";\n	}\n}', '.icon-qux {\n	content: "2 qux";\n}\n\n.icon-bar {\n	content: "1 bar";\n}\n\n.icon-foo {\n	content: "0 foo";\n}');
+	assert.compileTo([
+		'$icons = foo bar, qux;',
+		'@for $icon in $icons {',
+		'	.icon-$icon {',
+		'		content: "$icon";',
+		'	}',
+		'}',
+	], [
+		'.icon-foo {',
+		'	content: "foo";',
+		'}',
+		'',
+		'.icon-bar {',
+		'	content: "bar";',
+		'}',
+		'',
+		'.icon-qux {',
+		'	content: "qux";',
+		'}',
+	]);
 });
 
 test('loop number', function() {
-  return assert.compileTo('@for $i in 1 {\n	.span-$i {\n		width: $i * 60px;\n	}\n}', '.span-1 {\n	width: 60px;\n}');
+	assert.compileTo([
+		'@for $i in 1 {',
+		'	.span-$i {',
+		'		width: $i * 60px;',
+		'	}',
+		'}',
+	], [
+		'.span-1 {',
+		'	width: 60px;',
+		'}',
+	]);
 });
 
 test('loop null', function() {
-  return assert.compileTo('@for $i in null {\n	body {\n		margin: 0;\n	}\n}\n\nbody {\n	-foo: $i;\n}', 'body {\n	-foo: null;\n}');
+	assert.compileTo([
+		'@for $i in null {',
+		'	body {',
+		'		margin: 0;',
+		'	}',
+		'}',
+		'',
+		'body {',
+		'	-foo: $i;',
+		'}',
+	], [
+		'body {',
+		'	-foo: null;',
+		'}',
+	]);
+});
+
+test('loop list with index', function() {
+	assert.compileTo([
+		'@for $icon, $i in foo bar, qux {',
+		'	.icon-$icon {',
+		'		content: "$i $icon";',
+		'	}',
+		'}',
+	], [
+		'.icon-foo {',
+		'	content: "0 foo";',
+		'}',
+		'',
+		'.icon-bar {',
+		'	content: "1 bar";',
+		'}',
+		'',
+		'.icon-qux {',
+		'	content: "2 qux";',
+		'}',
+	]);
+});
+
+test('loop list with index with negative step', function() {
+	assert.compileTo([
+		'@for $icon, $i by -1 in foo bar, qux {',
+		'	.icon-$icon {',
+		'		content: "$i $icon";',
+		'	}',
+		'}',
+	], [
+		'.icon-qux {',
+		'	content: "2 qux";',
+		'}',
+		'',
+		'.icon-bar {',
+		'	content: "1 bar";',
+		'}',
+		'',
+		'.icon-foo {',
+		'	content: "0 foo";',
+		'}',
+	]);
+});
+
+test('loop value with index', function() {
+	assert.compileTo([
+		'@for $icon, $i in foo {',
+		'	.icon-$icon {',
+		'		content: "$i $icon";',
+		'	}',
+		'}',
+	], [
+		'.icon-foo {',
+		'	content: "0 foo";',
+		'}',
+	]);
+});
+
+test('loop null with index', function() {
+	assert.compileTo([
+		'@for $value, $i in null {}',
+		'',
+		'body {',
+		'	-foo: $value $i;',
+		'}',
+	], [
+		'body {',
+		'	-foo: null null;',
+		'}',
+	]);
 });
 
 suite('mixin');
 
-test('no params', function() {
-  return assert.compileTo('$mixin = @mixin {\n	width: auto;\n};\n\nbody {\n	$mixin();\n}', 'body {\n	width: auto;\n}');
+test('mixin rules', function() {
+	assert.compileTo([
+		'$property = @function {',
+		'	width: auto;',
+		'};',
+		'',
+		'body {',
+		'	@mixin $property();',
+		'}',
+	], [
+		'body {',
+		'	width: auto;',
+		'}',
+	]);
 });
 
-test('not allow undefined mixin', function() {
-  return assert.failAt('body {\n	$mixin();\n}', 2, 2);
-});
-
-test('not allow non-mixin to be called', function() {
-  return assert.failAt('$mixin = 0;\n\nbody {\n	$mixin();\n}', 4, 2);
-});
-
-test('call mixin multiple times', function() {
-  return assert.compileTo('$mixin = @mixin {\n	body {\n		width: $width;\n	}\n};\n\n$width = 980px;\n$mixin();\n\n$width = 500px;\n$mixin();', 'body {\n	width: 980px;\n}\n\nbody {\n	width: 500px;\n}');
-});
-
-test('specify parameter', function() {
-  return assert.compileTo('$mixin = @mixin $width {\n	body {\n		width: $width;\n	}\n};\n\n$mixin(980px);', 'body {\n	width: 980px;\n}');
-});
-
-test('specify default parameter', function() {
-  return assert.compileTo('$mixin = @mixin $width, $height = 100px {\n	body {\n		width: $width;\n		height: $height;\n	}\n};\n\n$mixin(980px);', 'body {\n	width: 980px;\n	height: 100px;\n}');
-});
-
-test('under-specify arguments', function() {
-  return assert.compileTo('$mixin = @mixin $width, $height {\n	body {\n		width: $width;\n		height: $height;\n	}\n};\n\n$mixin(980px);', 'body {\n	width: 980px;\n	height: null;\n}');
-});
-
-test('under-specify arguments for default parameter', function() {
-  return assert.compileTo('$mixin = @mixin $width, $height = 300px {\n	body {\n		width: $width;\n		height: $height;\n	}\n};\n\n$mixin();', 'body {\n	width: null;\n	height: 300px;\n}');
-});
-
-suite('scope');
-
-test('ruleset creates new scope', function() {
-  return assert.compileTo('$width = 980px;\nbody {\n	$width = 500px;\n	width: $width;\n}\nhtml {\n	width: $width;\n}', 'body {\n	width: 500px;\n}\n\nhtml {\n	width: 980px;\n}');
-});
-
-test('@media creates new scope', function() {
-  return assert.compileTo('$width = 980px;\n\n@media screen {\n	$width = 500px;\n	body {\n		width: $width;\n	}\n}\n\nhtml {\n	width: $width;\n}', '@media screen {\n	body {\n		width: 500px;\n	}\n}\n\nhtml {\n	width: 980px;\n}');
-});
-
-test('@import does not create new scope', function() {
-  return assert.compileTo({
-    'base.roo': '$width = 500px;\nbody {\n	width: $width;\n}'
-  }, '$width = 980px;\n\n@import \'base\';\n\nhtml {\n	width: $width;\n}', 'body {\n	width: 500px;\n}\n\nhtml {\n	width: 500px;\n}');
-});
-
-test('@void creates new scope', function() {
-  return assert.compileTo('$width = 100px;\n@void {\n	$width = 50px;\n	.button {\n		width: $width;\n	}\n}\n\n#submit {\n	@extend .button;\n}\n\n#reset {\n	width: $width;\n}', '#submit {\n	width: 50px;\n}\n\n#reset {\n	width: 100px;\n}');
-});
-
-test('@block creates new scope', function() {
-  return assert.compileTo('$width = 980px;\n@block {\n	$width = 500px;\n	body {\n		width: $width;\n	}\n}\nhtml {\n	width: $width;\n}', 'body {\n	width: 500px;\n}\n\nhtml {\n	width: 980px;\n}');
-});
-
-test('@if does not create new scope', function() {
-  return assert.compileTo('$width = 980px;\n\n@if true {\n	$width = 500px;\n}\n\nbody {\n	width: $width;\n}', 'body {\n	width: 500px;\n}');
-});
-
-test('@for does not create new scope', function() {
-  return assert.compileTo('$width = 980px;\n\n@for $i in 1 {\n	$width = 500px;\n}\n\nbody {\n	width: $width;\n}', 'body {\n	width: 500px;\n}');
-});
-
-suite('prefix');
-
-test('box-sizing', function() {
-  return assert.compileTo('body {\n	box-sizing: border-box;\n}', 'body {\n	-webkit-box-sizing: border-box;\n	-moz-box-sizing: border-box;\n	box-sizing: border-box;\n}');
-});
-
-test('linear-gradient()', function() {
-  return assert.compileTo('body {\n	background: linear-gradient(#000, #fff);\n}', 'body {\n	background: -webkit-linear-gradient(#000, #fff);\n	background: -moz-linear-gradient(#000, #fff);\n	background: -o-linear-gradient(#000, #fff);\n	background: linear-gradient(#000, #fff);\n}');
-});
-
-test('linear-gradient() with starting position', function() {
-  return assert.compileTo('body {\n	background: linear-gradient(to bottom, #000, #fff);\n}', 'body {\n	background: -webkit-linear-gradient(top, #000, #fff);\n	background: -moz-linear-gradient(top, #000, #fff);\n	background: -o-linear-gradient(top, #000, #fff);\n	background: linear-gradient(to bottom, #000, #fff);\n}');
-});
-
-test('linear-gradient() with starting position consisting of two identifiers', function() {
-  return assert.compileTo('body {\n	background: linear-gradient(to top left, #000, #fff);\n}', 'body {\n	background: -webkit-linear-gradient(bottom right, #000, #fff);\n	background: -moz-linear-gradient(bottom right, #000, #fff);\n	background: -o-linear-gradient(bottom right, #000, #fff);\n	background: linear-gradient(to top left, #000, #fff);\n}');
-});
-
-test('multiple linear-gradient()', function() {
-  return assert.compileTo('body {\n	background: linear-gradient(#000, #fff), linear-gradient(#111, #eee);\n}', 'body {\n	background: -webkit-linear-gradient(#000, #fff), -webkit-linear-gradient(#111, #eee);\n	background: -moz-linear-gradient(#000, #fff), -moz-linear-gradient(#111, #eee);\n	background: -o-linear-gradient(#000, #fff), -o-linear-gradient(#111, #eee);\n	background: linear-gradient(#000, #fff), linear-gradient(#111, #eee);\n}');
-});
-
-test('background with regular value', function() {
-  return assert.compileTo('body {\n	background: #fff;\n}', 'body {\n	background: #fff;\n}');
-});
-
-test('skip prefixed property', function() {
-  return assert.compileTo('body {\n	-moz-box-sizing: padding-box;\n	box-sizing: border-box;\n}', 'body {\n	-moz-box-sizing: padding-box;\n	-webkit-box-sizing: border-box;\n	box-sizing: border-box;\n}', {
-    skipPrefixed: true
-  });
+test('ignore @return', function() {
+	assert.compileTo([
+		'$rules = @function {',
+		'	width: auto;',
+		'	@return 960px;',
+		'	height: auto;',
+		'};',
+		'',
+		'body {',
+		'	@mixin $rules();',
+		'}',
+	], [
+		'body {',
+		'	width: auto;',
+		'	height: auto;',
+		'}',
+	]);
 });
 
 suite('@keyframes');
 
+test('remove empty @keyframes', function() {
+	assert.compileTo([
+		'@keyframes name {}',
+	], [
+		'',
+	]);
+});
+
+test('remove empty keyframe block', function() {
+	assert.compileTo([
+		'@keyframes name {',
+		'	0% {}',
+		'}',
+	], [
+		'',
+	]);
+});
+
 test('prefixed @keyframes', function() {
-  return assert.compileTo('@-webkit-keyframes name {\n	0% {\n		top: 0;\n	}\n	100% {\n		top: 100px;\n	}\n}', '@-webkit-keyframes name {\n	0% {\n		top: 0;\n	}\n	100% {\n		top: 100px;\n	}\n}');
+	assert.compileTo([
+		'@-webkit-keyframes name {',
+		'	0% {',
+		'		top: 0;',
+		'	}',
+		'	100% {',
+		'		top: 100px;',
+		'	}',
+		'}',
+	], [
+		'@-webkit-keyframes name {',
+		'	0% {',
+		'		top: 0;',
+		'	}',
+		'	100% {',
+		'		top: 100px;',
+		'	}',
+		'}',
+	]);
 });
 
 test('from to', function() {
-  return assert.compileTo('@-webkit-keyframes name {\n	from {\n		top: 0;\n	}\n	to {\n		top: 100px;\n	}\n}', '@-webkit-keyframes name {\n	from {\n		top: 0;\n	}\n	to {\n		top: 100px;\n	}\n}');
+	assert.compileTo([
+		'@-webkit-keyframes name {',
+		'	from {',
+		'		top: 0;',
+		'	}',
+		'	to {',
+		'		top: 100px;',
+		'	}',
+		'}',
+	], [
+		'@-webkit-keyframes name {',
+		'	from {',
+		'		top: 0;',
+		'	}',
+		'	to {',
+		'		top: 100px;',
+		'	}',
+		'}',
+	]);
 });
 
 test('keyframe selector list', function() {
-  return assert.compileTo('@-webkit-keyframes name {\n	0% {\n		top: 0;\n	}\n	50%, 60% {\n		top: 50px;\n	}\n	100% {\n		top: 100px;\n	}\n}', '@-webkit-keyframes name {\n	0% {\n		top: 0;\n	}\n	50%, 60% {\n		top: 50px;\n	}\n	100% {\n		top: 100px;\n	}\n}');
+	assert.compileTo([
+		'@-webkit-keyframes name {',
+		'	0% {',
+		'		top: 0;',
+		'	}',
+		'	50%, 60% {',
+		'		top: 50px;',
+		'	}',
+		'	100% {',
+		'		top: 100px;',
+		'	}',
+		'}',
+	], [
+		'@-webkit-keyframes name {',
+		'	0% {',
+		'		top: 0;',
+		'	}',
+		'	50%, 60% {',
+		'		top: 50px;',
+		'	}',
+		'	100% {',
+		'		top: 100px;',
+		'	}',
+		'}',
+	]);
 });
 
 test('unprefixed @keyframes', function() {
-  return assert.compileTo('@keyframes name {\n	0% {\n		top: 0;\n	}\n	100% {\n		top: 100px;\n	}\n}', '@-webkit-keyframes name {\n	0% {\n		top: 0;\n	}\n	100% {\n		top: 100px;\n	}\n}\n\n@-moz-keyframes name {\n	0% {\n		top: 0;\n	}\n	100% {\n		top: 100px;\n	}\n}\n\n@-o-keyframes name {\n	0% {\n		top: 0;\n	}\n	100% {\n		top: 100px;\n	}\n}\n\n@keyframes name {\n	0% {\n		top: 0;\n	}\n	100% {\n		top: 100px;\n	}\n}');
+	assert.compileTo([
+		'@keyframes name {',
+		'	0% {',
+		'		top: 0;',
+		'	}',
+		'	100% {',
+		'		top: 100px;',
+		'	}',
+		'}',
+	], [
+		'@-webkit-keyframes name {',
+		'	0% {',
+		'		top: 0;',
+		'	}',
+		'	100% {',
+		'		top: 100px;',
+		'	}',
+		'}',
+		'',
+		'@-moz-keyframes name {',
+		'	0% {',
+		'		top: 0;',
+		'	}',
+		'	100% {',
+		'		top: 100px;',
+		'	}',
+		'}',
+		'',
+		'@-o-keyframes name {',
+		'	0% {',
+		'		top: 0;',
+		'	}',
+		'	100% {',
+		'		top: 100px;',
+		'	}',
+		'}',
+		'',
+		'@keyframes name {',
+		'	0% {',
+		'		top: 0;',
+		'	}',
+		'	100% {',
+		'		top: 100px;',
+		'	}',
+		'}',
+	]);
 });
 
 test('contain property needs to be prefixed', function() {
-  return assert.compileTo('@keyframes name {\n	from {\n		border-radius: 0;\n	}\n	to {\n		border-radius: 10px;\n	}\n}', '@-webkit-keyframes name {\n	from {\n		-webkit-border-radius: 0;\n		border-radius: 0;\n	}\n	to {\n		-webkit-border-radius: 10px;\n		border-radius: 10px;\n	}\n}\n\n@-moz-keyframes name {\n	from {\n		-moz-border-radius: 0;\n		border-radius: 0;\n	}\n	to {\n		-moz-border-radius: 10px;\n		border-radius: 10px;\n	}\n}\n\n@-o-keyframes name {\n	from {\n		border-radius: 0;\n	}\n	to {\n		border-radius: 10px;\n	}\n}\n\n@keyframes name {\n	from {\n		border-radius: 0;\n	}\n	to {\n		border-radius: 10px;\n	}\n}');
+	assert.compileTo([
+		'@keyframes name {',
+		'	from {',
+		'		border-radius: 0;',
+		'	}',
+		'	to {',
+		'		border-radius: 10px;',
+		'	}',
+		'}',
+	], [
+		'@-webkit-keyframes name {',
+		'	from {',
+		'		-webkit-border-radius: 0;',
+		'		border-radius: 0;',
+		'	}',
+		'	to {',
+		'		-webkit-border-radius: 10px;',
+		'		border-radius: 10px;',
+		'	}',
+		'}',
+		'',
+		'@-moz-keyframes name {',
+		'	from {',
+		'		-moz-border-radius: 0;',
+		'		border-radius: 0;',
+		'	}',
+		'	to {',
+		'		-moz-border-radius: 10px;',
+		'		border-radius: 10px;',
+		'	}',
+		'}',
+		'',
+		'@-o-keyframes name {',
+		'	from {',
+		'		border-radius: 0;',
+		'	}',
+		'	to {',
+		'		border-radius: 10px;',
+		'	}',
+		'}',
+		'',
+		'@keyframes name {',
+		'	from {',
+		'		border-radius: 0;',
+		'	}',
+		'	to {',
+		'		border-radius: 10px;',
+		'	}',
+		'}',
+	]);
 });
 
 suite('@font-face');
 
+test('remove empty @font-face', function() {
+	assert.compileTo([
+		'@font-face {}',
+	], [
+		'',
+	]);
+});
+
 test('@font-face', function() {
-  return assert.compileTo('@font-face {\n	font-family: font;\n}', '@font-face {\n	font-family: font;\n}');
+	assert.compileTo([
+		'@font-face {',
+		'	font-family: font;',
+		'}',
+	], [
+		'@font-face {',
+		'	font-family: font;',
+		'}',
+	]);
+});
+
+suite('@module');
+
+test('default separator', function() {
+	assert.compileTo([
+		'@module foo {',
+		'	.button {',
+		'		display: inline-block;',
+		'	}',
+		'}',
+	], [
+		'.foo-button {',
+		'	display: inline-block;',
+		'}',
+	]);
+});
+
+test('specify separator', function() {
+	assert.compileTo([
+		'@module foo with "--" {',
+		'	.button {',
+		'		display: inline-block;',
+		'	}',
+		'}',
+	], [
+		'.foo--button {',
+		'	display: inline-block;',
+		'}',
+	]);
+});
+
+test('nested selectors', function() {
+	assert.compileTo([
+		'@module foo {',
+		'	.tabs .tab {',
+		'		float: left;',
+		'	}',
+		'}',
+	], [
+		'.foo-tabs .foo-tab {',
+		'	float: left;',
+		'}',
+	]);
+});
+
+test('chained selectors', function() {
+	assert.compileTo([
+		'@module foo {',
+		'	.button.active {',
+		'		display: inline-block;',
+		'	}',
+		'}',
+	], [
+		'.foo-button.foo-active {',
+		'	display: inline-block;',
+		'}',
+	]);
+});
+
+test('nested modules', function() {
+	assert.compileTo([
+		'@module foo {',
+		'	@module bar {',
+		'		.button {',
+		'			display: inline-block;',
+		'		}',
+		'	}',
+		'}',
+	], [
+		'.foo-bar-button {',
+		'	display: inline-block;',
+		'}',
+	]);
+});
+
+test('not allow invalid module name', function() {
+	assert.failAt([
+		'$func = @function {};',
+		'@module $func {',
+		'	.button {',
+		'		display: inline-block;',
+		'	}',
+		'}',
+	], {line: 2, column: 9});
+});
+
+test('not allow invalid module separator', function() {
+	assert.failAt([
+		'$func = @function {};',
+		'@module foo with $func {',
+		'	.button {',
+		'		display: inline-block;',
+		'	}',
+		'}',
+	], {line: 2, column: 18});
+});
+
+suite('@page');
+
+test('without page selector', function() {
+	assert.compileTo([
+		'@page {',
+		'	margin: 2em;',
+		'}',
+	], [
+		'@page {',
+		'	margin: 2em;',
+		'}',
+	]);
+});
+
+test('with page selector', function() {
+	assert.compileTo([
+		'@page :first {',
+		'	margin: 2em;',
+		'}',
+	], [
+		'@page :first {',
+		'	margin: 2em;',
+		'}',
+	]);
 });
 
 suite('@charset');
 
 test('@charset', function() {
-  return assert.compileTo('@charset \'UTF-8\';', '@charset \'UTF-8\';');
+	assert.compileTo([
+		'@charset "UTF-8";',
+	], [
+		'@charset "UTF-8";',
+	]);
+});
+
+suite('scope');
+
+test('ruleset creates new scope', function() {
+	assert.compileTo([
+		'$width = 980px;',
+		'body {',
+		'	$width = 500px;',
+		'	width: $width;',
+		'}',
+		'html {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 500px;',
+		'}',
+		'',
+		'html {',
+		'	width: 980px;',
+		'}',
+	]);
+});
+
+test('@media creates new scope', function() {
+	assert.compileTo([
+		'$width = 980px;',
+		'',
+		'@media screen {',
+		'	$width = 500px;',
+		'	body {',
+		'		width: $width;',
+		'	}',
+		'}',
+		'',
+		'html {',
+		'	width: $width;',
+		'}',
+	], [
+		'@media screen {',
+		'	body {',
+		'		width: 500px;',
+		'	}',
+		'}',
+		'',
+		'html {',
+		'	width: 980px;',
+		'}',
+	]);
+});
+
+test('@import does not create new scope', function() {
+	assert.compileTo({imports: {
+		'base.roo': [
+			'$width = 500px;',
+			'body {',
+			'	width: $width;',
+			'}',
+		]
+	}}, [
+		'$width = 980px;',
+		'',
+		'@import "base";',
+		'',
+		'html {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 500px;',
+		'}',
+		'',
+		'html {',
+		'	width: 500px;',
+		'}',
+	]);
+});
+
+test('@void creates new scope', function() {
+	assert.compileTo([
+		'$width = 100px;',
+		'@void {',
+		'	$width = 50px;',
+		'	.button {',
+		'		width: $width;',
+		'	}',
+		'}',
+		'',
+		'#submit {',
+		'	@extend .button;',
+		'}',
+		'',
+		'#reset {',
+		'	width: $width;',
+		'}',
+	], [
+		'#submit {',
+		'	width: 50px;',
+		'}',
+		'',
+		'#reset {',
+		'	width: 100px;',
+		'}',
+	]);
+});
+
+test('@block creates new scope', function() {
+	assert.compileTo([
+		'$width = 980px;',
+		'@block {',
+		'	$width = 500px;',
+		'	body {',
+		'		width: $width;',
+		'	}',
+		'}',
+		'html {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 500px;',
+		'}',
+		'',
+		'html {',
+		'	width: 980px;',
+		'}',
+	]);
+});
+
+test('@if does not create new scope', function() {
+	assert.compileTo([
+		'$width = 980px;',
+		'',
+		'@if true {',
+		'	$width = 500px;',
+		'}',
+		'',
+		'body {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 500px;',
+		'}',
+	]);
+});
+
+test('@for does not create new scope', function() {
+	assert.compileTo([
+		'$width = 980px;',
+		'',
+		'@for $i in 1 {',
+		'	$width = 500px;',
+		'}',
+		'',
+		'body {',
+		'	width: $width;',
+		'}',
+	], [
+		'body {',
+		'	width: 500px;',
+		'}',
+	]);
+});
+
+test('@keyframes creates new scope', function() {
+	assert.compileTo([
+		'$width = 960px;',
+		'',
+		'@-webkit-keyframes name {',
+		'	$width = 400px;',
+		'',
+		'	from {',
+		'		$width = 200px;',
+		'		width: $width;',
+		'	}',
+		'	to {',
+		'		width: $width;',
+		'	}',
+		'}',
+		'',
+		'body {',
+		'	width: $width;',
+		'}',
+	], [
+		'@-webkit-keyframes name {',
+		'	from {',
+		'		width: 200px;',
+		'	}',
+		'	to {',
+		'		width: 400px;',
+		'	}',
+		'}',
+		'',
+		'body {',
+		'	width: 960px;',
+		'}',
+	]);
+});
+
+suite('prefix');
+
+test('box-sizing', function() {
+	assert.compileTo([
+		'body {',
+		'	box-sizing: border-box;',
+		'}',
+	], [
+		'body {',
+		'	-webkit-box-sizing: border-box;',
+		'	-moz-box-sizing: border-box;',
+		'	box-sizing: border-box;',
+		'}',
+	]);
+});
+
+test('linear-gradient()', function() {
+	assert.compileTo([
+		'body {',
+		'	background: linear-gradient(#000, #fff);',
+		'}',
+	], [
+		'body {',
+		'	background: -webkit-linear-gradient(#000, #fff);',
+		'	background: -moz-linear-gradient(#000, #fff);',
+		'	background: -o-linear-gradient(#000, #fff);',
+		'	background: linear-gradient(#000, #fff);',
+		'}',
+	]);
+});
+
+test('linear-gradient() with starting position', function() {
+	assert.compileTo([
+		'body {',
+		'	background: linear-gradient(to bottom, #000, #fff);',
+		'}',
+	], [
+		'body {',
+		'	background: -webkit-linear-gradient(top, #000, #fff);',
+		'	background: -moz-linear-gradient(top, #000, #fff);',
+		'	background: -o-linear-gradient(top, #000, #fff);',
+		'	background: linear-gradient(to bottom, #000, #fff);',
+		'}',
+	]);
+});
+
+test('linear-gradient() with starting position consisting of two identifiers', function() {
+	assert.compileTo([
+		'body {',
+		'	background: linear-gradient(to top left, #000, #fff);',
+		'}',
+	], [
+		'body {',
+		'	background: -webkit-linear-gradient(bottom right, #000, #fff);',
+		'	background: -moz-linear-gradient(bottom right, #000, #fff);',
+		'	background: -o-linear-gradient(bottom right, #000, #fff);',
+		'	background: linear-gradient(to top left, #000, #fff);',
+		'}',
+	]);
+});
+
+test('multiple linear-gradient()', function() {
+	assert.compileTo([
+		'body {',
+		'	background: linear-gradient(#000, #fff), linear-gradient(#111, #eee);',
+		'}',
+	], [
+		'body {',
+		'	background: -webkit-linear-gradient(#000, #fff), -webkit-linear-gradient(#111, #eee);',
+		'	background: -moz-linear-gradient(#000, #fff), -moz-linear-gradient(#111, #eee);',
+		'	background: -o-linear-gradient(#000, #fff), -o-linear-gradient(#111, #eee);',
+		'	background: linear-gradient(#000, #fff), linear-gradient(#111, #eee);',
+		'}',
+	]);
+});
+
+test('background with regular value', function() {
+	assert.compileTo([
+		'body {',
+		'	background: #fff;',
+		'}',
+	], [
+		'body {',
+		'	background: #fff;',
+		'}',
+	]);
+});
+
+test('skip prefixed property', function() {
+	assert.compileTo({
+		skipPrefixed: true
+	}, [
+		'body {',
+		'	-moz-box-sizing: padding-box;',
+		'	box-sizing: border-box;',
+		'}',
+	], [
+		'body {',
+		'	-moz-box-sizing: padding-box;',
+		'	-webkit-box-sizing: border-box;',
+		'	box-sizing: border-box;',
+		'}',
+	]);
 });

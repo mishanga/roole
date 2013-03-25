@@ -1,43 +1,27 @@
-'use strict'
+'use strict';
 
-var Err = require('../../err')
-var compiler = require('../../compiler')
-
-var Extender = require('../extender')
+var Err = require('../../err');
+var Node = require('../../node');
+var Extender = require('../extender');
 
 Extender.prototype.visitSelector = function(selectorNode) {
-	var hasAmpersandSelector = false
-	var startWithCombinator = false
+	this.visit(selectorNode.children);
 
-	var selector = ''
-	selectorNode.children.forEach(function(childNode, i) {
-		switch (childNode.type) {
-		case 'ampersandSelector':
-			if (!this.parentSelector)
-				throw Err("& selector is not allowed at the top level", childNode, this.filePath)
+	if (this.hasAmpersandSelector) {
+		this.hasAmpersandSelector = false;
+		return;
+	}
 
-			hasAmpersandSelector = true
-			selector += this.parentSelector
-			break
-		case 'combinator':
-			if (!i) {
-				if (!this.parentSelector)
-					throw Err("selector starting with a combinator is not allowed at the top level", childNode, this.filePath)
-
-				startWithCombinator = true
-			}
-
-			// fall through
-		default:
-			selector += compiler.compile(childNode)
+	var firstNode = selectorNode.children[0];
+	var startWithCombinator = firstNode.type === 'combinator';
+	if (startWithCombinator) {
+		if (!this.parentSelector) {
+			throw Err("selector starting with a combinator is not allowed at the top level", firstNode, this.fileName);
 		}
-	}, this)
 
-	if (hasAmpersandSelector)
-		return selector
-
-	if (startWithCombinator)
-		return this.parentSelector + selector
-
-	return  this.parentSelector ? this.parentSelector + ' ' + selector : selector
-}
+		selectorNode.children = this.parentSelector.children.concat(selectorNode.children);
+	} else if (this.parentSelector) {
+		var combinator = Node('combinator', [' '], {loc: selectorNode.loc});
+		selectorNode.children = this.parentSelector.children.concat(combinator, selectorNode.children);
+	}
+};

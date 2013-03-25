@@ -1,11 +1,10 @@
-'use strict'
+'use strict';
 
-var Compiler = require('../compiler')
+var Compiler = require('../compiler');
 
 Compiler.prototype.visitCombinator = function(combinatorNode) {
-	var value = combinatorNode.children[0]
-	if (value !== ' ')
-		value = ' ' + value + ' '
+	var value = combinatorNode.children[0];
+	if (value !== ' ') { value = ' ' + value + ' '; }
 
-	return value
-}
+	return value;
+};

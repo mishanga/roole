@@ -1,9 +1,8 @@
-'use strict'
+'use strict';
 
-var Normalizer = require('./normalizer')
+var Normalizer = require('./normalizer');
+var normalizer = exports;
 
-var normalizer = exports
-
-normalizer.normalize = function(ast, options) {
-	return new Normalizer().normalize(ast, options)
-}
+normalizer.normalize = function(ast) {
+	return new Normalizer().normalize(ast);
+};

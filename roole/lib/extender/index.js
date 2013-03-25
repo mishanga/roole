@@ -1,9 +1,8 @@
-'use strict'
+'use strict';
 
-var Extender = require('./extender')
+var Extender = require('./extender');
+var extender = exports;
 
-var extender = exports
-
-extender.extend = function(ast, options) {
-	return new Extender().extend(ast, options)
-}
+extender.extend = function(ast) {
+	return new Extender().extend(ast);
+};

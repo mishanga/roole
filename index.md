@@ -61,18 +61,18 @@ Quickly generate many rules:
 Define your own way of generating rules:
 
 ```roole
-$button = @mixin $color, $bg-color {
+$button = @function $color, $bg-color {
 	display: inline-block;
 	color: $color;
 	background-color: $bg-color;
 };
 
 .submit {
-	$button(black, white);
+	@mixin $button(black, white);
 }
 
 .reset {
-	$button(red, white);
+	@mixin $button(red, white);
 }
 ```
 
@@ -94,32 +94,6 @@ Or simply extend already defined rules:
 .reset {
 	@extend .button;
 	color: red;
-}
-```
-
-<hr>
-
-Discard unextend rules:
-
-```roole
-// framework.css
-
-.button {
-	display: inline-block;
-}
-
-.tabs {
-	overflow: hidden;
-}
-```
-
-```roole
-@void {
-	@import 'framework.css';
-}
-
-#submit {
-	@extend .button;
 }
 ```
 
@@ -198,11 +172,11 @@ roole.compile(input, options, callback)
 
   * `precision` (default: `3`) - max number of digits to used for decimal numbers when generating CSS
 
-  * `prefix` (default: `["webkit", "moz", "ms", "o"]`) - vendor names to use when prefixing rules, use `[]` or `null` to disable prefixing
+  * `prefix` (default: `"webkit moz ms o"`) - space-separated vendor names to use when prefixing rules
 
   * `skipPrefixed` (default: `false`) - skip prefixing with vendor names whose corresponding prefixed rule already exists
 
-* `callback(error, css)` - a function will be called when done generating CSS:
+* `callback(error, css)` - a function will be called when CSS is generated:
 
   * `error` - `null` if there was no error when generating CSS, otherwise an error object
 
@@ -444,12 +418,12 @@ $query = '(max-width: 1024px)';
 ```
 
 ```roole
-$lt-desktop = '(max-width: 1199px)';
+$lt-desktop = '(max-width: 979px)';
 $gt-phone = '(min-width: 768px)';
 
 @media $gt-phone and $lt-desktop {
 	body {
-		width: 800px;
+		width: 960px;
 	}
 }
 ```
@@ -614,7 +588,7 @@ At lease one space should exist on the right side of `+`(`-`), or no space exist
 
 Arithmetic operations can be combined with assignments:
 
-```
+```roole
 $text = 'Hello, ';
 
 .guest::before {
@@ -622,8 +596,6 @@ $text = 'Hello, ';
 	content: $text;
 }
 ```
-
-INFO: Will be implemented in a future version.
 
 <hr>
 
@@ -831,12 +803,12 @@ To access indices, specify one more variable:
 }
 ```
 
-### Mixin
+### @function
 
-Mixins allow you to store blocks of rules in variables for later use:
+You can store blocks of rules in `@function`, and mix them in other places with `@mixin`:
 
 ```roole
-$clearfix = @mixin {
+$clearfix = @function {
 	*zoom: 1;
 	&:before,
 	&:after {
@@ -849,7 +821,7 @@ $clearfix = @mixin {
 };
 
 ul {
-	$clearfix();
+	@mixin $clearfix();
 }
 ```
 
@@ -857,10 +829,27 @@ ul {
 
 <hr>
 
-Mixins can have parameters, which can also have a default value:
+Or you can ask it to perform some calculations, and return the value with `@return`:
 
 ```roole
-$button = @mixin $color, $bg-color, $size = large {
+$width = @function {
+	$side-bar = 250px;
+	$main = 710px;
+
+	@return $side-bar + $main;
+};
+
+body {
+	width: $width();
+}
+```
+
+<hr>
+
+`@function` can have parameters, which can also have a default value:
+
+```roole
+$button = @function $color, $bg-color, $size = large {
 	color: $color;
 	background-color: $bg-color;
 	@if $size is small {
@@ -871,16 +860,16 @@ $button = @mixin $color, $bg-color, $size = large {
 };
 
 #submit {
-	$button(#000, #fff);
+	@mixin $button(#000, #fff);
 }
 ```
 
 <hr>
 
-Arguments passed to a mixin can also be accessed dynamically using `$arguments`:
+Arguments passed to a function can also be accessed dynamically using `$arguments`:
 
-```
-$social-icons = @mixin {
+```roole
+$social-icons = @function {
 	@for $icon in $arguments {
 		.icon-$icon {
 			background: url("$icon.png");
@@ -889,38 +878,34 @@ $social-icons = @mixin {
 };
 
 #social {
-	$social-icons(twitter, google, facebook);
+	@mixin $social-icons(twitter, facebook);
 }
 ```
 
-INFO: Will be implemented in a future version.
-
 <hr>
 
-Use rest parameters to capture multiple arguments:
+Use rest parameter to capture multiple arguments:
 
-```
-$social-icons = @mixin $size, ...$icons {
+```roole
+$social-icons = @function $size, ...$icons {
 	@for $icon in $icons {
 		.icon-$icon {
-			background: url($size/$icon.png);
+			background: url("$size/$icon.png");
 		}
 	}
 };
 
 #social {
-	$social-icons(large, twitter, facebook, google);
+	@mixin $social-icons(large, twitter, facebook);
 }
 ```
 
-INFO: Will be implemented in a future version.
-
 <hr>
 
-Unpassed parameters have a `null` value:
+Unassigned parameters have value `null`:
 
 ```roole
-$button = @mixin $color, $bg-color, $size {
+$button = @function $color, $bg-color, $size {
 	color: $color;
 	background-color: $bg-color;
 	@if $size is null {
@@ -931,7 +916,7 @@ $button = @mixin $color, $bg-color, $size {
 };
 
 #submit {
-	$button(#000, #fff);
+	@mixin $button(#000, #fff);
 }
 ```
 
@@ -1044,7 +1029,7 @@ Complex selectors also work as intended:
 
 <hr>
 
-Note that selector are matched exactly, so `.icon` will not match `.button .icon`:
+Note that selectors are matched exactly, so `.icon` will not match `.button .icon`:
 
 ```roole
 .icon {
@@ -1108,28 +1093,6 @@ When using `@extend` under a `@media`, it will only match rule set under `@media
 }
 ```
 
-### @extend-all
-
-`@extend-all` works much like `@extend`, but instead of matching selectors exactly, it matches any selector that contains the specified selector anywhere within itself:
-
-```roole
-.menu .item {
-	display: block;
-}
-
-.menu.active {
-	visibility: visible;
-}
-
-.menu .menu {
-	left: 0;
-}
-
-.nav-menu {
-	@extend-all .menu;
-}
-```
-
 ### @void
 
 Rule sets inside `@void` are removed from the CSS output, unless they are extended by a rule set not inside a `@void`, but original selectors are always removed:
@@ -1168,27 +1131,28 @@ Rule sets inside `@void` are removed from the CSS output, unless they are extend
 ```
 
 ```roole
-@import 'tabs';
+@import './tabs';
 ```
 
 `.roo` will be added if the file's name doesn't end with an extension.
 
+INFO: Use relative paths (i.e., paths start with `./` or `../`) to import files, future version will use paths like `'tabs'` to import libararies.
+
 <hr>
 
-Files are not imported if their paths are sepecified using `url()`, starting with a protocol like `http://`, containing a variable, or followed by a media query:
+Files are not imported if their paths are sepecified using `url()`, starting with a protocol like `http://`, or followed by a media query:
 
 ```roole
-@import url(tabs);
+@import url(./tabs);
 
-@import url("tabs");
+@import url("./tabs");
 
 @import "http://example.com/tabs";
 
-$module = 'tabs';
-@import $module;
-
-@import 'tabs' screen;
+@import './tabs' screen;
 ```
+
+INFO: variables will be allowed in paths in a future version.
 
 <hr>
 
@@ -1205,7 +1169,7 @@ body {
 ```roole
 // tabs.roo
 
-@import 'reset';
+@import './reset';
 
 .tabs {
 	.tab {
@@ -1217,7 +1181,7 @@ body {
 ```roole
 // button.roo
 
-@import 'reset';
+@import './reset';
 
 .button {
 	display: inline-block;
@@ -1225,9 +1189,9 @@ body {
 ```
 
 ```roole
-@import 'reset';
-@import 'tabs';
-@import 'button';
+@import './reset';
+@import './tabs';
+@import './button';
 ```
 
 <hr>
@@ -1252,12 +1216,12 @@ body {
 ```
 
 ```roole
-@import 'sidebar';
+@import './sidebar';
 
 $support-old-ie = false;
 
 @if $support-old-ie {
-	@import 'sidebar-old-ie';
+	@import './sidebar-old-ie';
 }
 ```
 
@@ -1275,7 +1239,7 @@ $support-old-ie = false;
 
 ```roole
 @void {
-	@import 'framework';
+	@import './framework';
 }
 
 #submit {
@@ -1292,13 +1256,13 @@ Variable scope in the imported file is explained in the next section.
 Variables have to be defined before they can be used. Once defined, they are only available within the boundary of their respective rule block, which defines their scope:
 
 ```roole
-$menu = @mixin {
+$menu = @function {
 	$width = 200px;
 	width: $width;
 };
 
 .menu {
-	$menu();
+	@mixin $menu();
 	// $width is undefined here
 }
 ```
@@ -1332,7 +1296,7 @@ $bg-color = #fff;
 ```
 
 ```roole
-@import 'vars';
+@import './vars';
 
 #main {
 	color: $color;
@@ -1357,7 +1321,7 @@ The imported file also has access to variables defined the importing file:
 $color = #000;
 $bg-color = #fff;
 
-@import 'base';
+@import './base';
 ```
 
 <hr>
@@ -1388,11 +1352,71 @@ $width ?= 100px;
 
 ```roole
 @block {
-	@import 'foo-framework';
+	@import './foo-framework';
 }
 
 @block {
-	@import 'bar-framework';
+	@import './bar-framework';
+}
+```
+
+### @module
+
+`@module` prepends a name to all class selectors inside it:
+
+```roole
+@module foo {
+	.button {
+		display: inline-block;
+	}
+
+	.tabs {
+		.tab {
+			float: left;
+
+			&.active {
+				border-bottom: none;
+			}
+		}
+	}
+}
+```
+
+It can be used to prevent class name collisions between your project and frameworks.
+
+<hr>
+
+By default it uses `-` as a separator, you can specifiy a different one using `with`:
+
+```roole
+@module foo with '--' {
+	.button {
+		display: inline-block;
+	}
+
+	.tabs {
+		.tab {
+			float: left;
+
+			&.active {
+				border-bottom: none;
+			}
+		}
+	}
+}
+```
+
+<hr>
+
+`@module` can be nested:
+
+```roole
+@module foo {
+	@module bar {
+		.button {
+			display: inline-block;
+		}
+	}
 }
 ```
 
@@ -1435,6 +1459,8 @@ When properties are nested inside other rules which needs to be prefixed, Roole 
 }
 ```
 
-## Feedback
+## Support
 
-You are encouraged to watch [the repo on GitHub](https://github.com/curvedmark/roole), and leave comments or open a new issue in [the issue tracker](https://github.com/curvedmark/roole/issues). Before opening a new one, use the search function to make sure the issue is not already reported.
+You can leave comments or open a new issue in [the issue tracker](https://github.com/curvedmark/roole/issues). Before opening a new one, use the search function to make sure the issue is not already reported.
+
+You can also follow me [@curvedmark](https://twitter.com/curvedmark) on twitter.

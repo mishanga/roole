@@ -14,10 +14,6 @@ CodeMirror.defineMode('roole', function(config) {
 		if (style !== undefined)
 			return style
 
-		var style = tokenCall(stream, state)
-		if (style !== undefined)
-			return style
-
 		if (stream.match(/^@(?:else\s+if|if)/i)) {
 			state.tokenize.push(tokenExprUntilBrace)
 			return 'at-rule'
@@ -25,6 +21,16 @@ CodeMirror.defineMode('roole', function(config) {
 
 		if (stream.match(/^@for/i)) {
 			state.tokenize.push(tokenFor)
+			return 'at-rule'
+		}
+
+		if (stream.match(/^@(?:mixin|return)/i)) {
+			state.tokenize.push(tokenExprUntilSemicolon)
+			return 'at-rule'
+		}
+
+		if (stream.match(/^@module/i)) {
+			state.tokenize.push(tokenModule)
 			return 'at-rule'
 		}
 
@@ -93,7 +99,7 @@ CodeMirror.defineMode('roole', function(config) {
 
 	function tokenAssign(stream, state) {
 		var style = tokenVariable(stream, state)
-		if (style && stream.match(/^\s*\??=/, false)) {
+		if (style && stream.match(/^\s*[-+*\/?]?=/, false)) {
 			state.tokenize.push(tokenAssignUntilSemicolon)
 			return style
 		}
@@ -111,7 +117,7 @@ CodeMirror.defineMode('roole', function(config) {
 		if (stream.eatSpace())
 			return null
 
-		if (stream.match(/^\??=/))
+		if (stream.match(/^[-+*\/?]?=/))
 			return 'operator'
 
 		state.tokenize.pop()
@@ -133,21 +139,21 @@ CodeMirror.defineMode('roole', function(config) {
 	}
 
 	function tokenValue(stream, state) {
-		return tokenCall(stream, state) ||
-		       tokenMixin(stream, state) ||
+		return tokenUrl(stream, state) ||
+		       tokenCall(stream, state) ||
+		       tokenFunction(stream, state) ||
 		       tokenComment(stream, state) ||
 		       tokenString(stream, state) ||
 		       tokenNumber(stream, state) ||
 		       tokenOperator(stream, state) ||
 		       tokenColor(stream, state) ||
-		       tokenUrl(stream, state) ||
-		       tokenFunction(stream, state) ||
 		       tokenIdentifier(stream, state)
 	}
 
 	function tokenCall(stream, state) {
-		var style = tokenVariable(stream, state)
+		var style = tokenIdentifier(stream, state)
 		if (style !== undefined && stream.peek() === '(') {
+			if (style === 'value') { style = 'operator' }
 			state.tokenize.push(tokenCallArgs)
 			return style
 		}
@@ -176,8 +182,8 @@ CodeMirror.defineMode('roole', function(config) {
 		return tokenValue(stream, state)
 	}
 
-	function tokenMixin(stream, state) {
-		if (stream.match(/^@mixin/i)) {
+	function tokenFunction(stream, state) {
+		if (stream.match(/^@function/i)) {
 			state.tokenize.push(tokenExprUntilBrace)
 			return 'at-rule'
 		}
@@ -189,7 +195,7 @@ CodeMirror.defineMode('roole', function(config) {
 
 		if (stream.eat('"')) {
 			state.tokenize.push(tokenInnerString)
-			return tokenInnerString(stream, state)
+			return 'string';
 		}
 	}
 
@@ -272,18 +278,6 @@ CodeMirror.defineMode('roole', function(config) {
 			return 'string'
 	}
 
-	function tokenFunction(stream, state) {
-		var style = tokenIdentifier(stream, state)
-		if (style !== undefined && stream.peek() === '(') {
-			if (style === 'value')
-				style = 'operator'
-			state.tokenize.push(tokenFunctionArg)
-			return style
-		}
-
-		stream.backUp(stream.current().length)
-	}
-
 	function tokenFunctionArg(stream, state) {
 		if (stream.eat('('))
 			return null
@@ -343,6 +337,30 @@ CodeMirror.defineMode('roole', function(config) {
 			state.tokenize.push(tokenExprUntilBrace)
 			return 'at-rule'
 		}
+	}
+
+	function tokenModule(stream, state) {
+		var style = tokenWS(stream, state)
+		if (style !== undefined)
+			return style
+
+		if (!state.moduleNameLexed) {
+			state.moduleNameLexed = true
+			var style = tokenIdentifier(stream, state)
+			if (style) {
+				return style
+			}
+		}
+
+		state.moduleNameLexed = false
+
+		if (stream.match(/^with/i)) {
+			state.tokenize.pop()
+			state.tokenize.push(tokenExprUntilBrace)
+			return 'at-rule'
+		}
+
+		state.tokenize.pop()
 	}
 
 	function tokenExprUntilIn(stream, state) {

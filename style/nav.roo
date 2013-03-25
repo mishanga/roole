@@ -15,7 +15,7 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
-		$clearfix();
+		@mixin $clearfix();
 
 		> li {
 			float: left;

@@ -1,15 +1,15 @@
-'use strict'
+'use strict';
 
-var Normalizer = require('../normalizer')
+var Normalizer = require('../normalizer');
 
 Normalizer.prototype.visitVoid = function(voidNode) {
-	var parentVoid = this.parentVoid
-	this.parentVoid = voidNode
+	var insideVoid = this.insideVoid;
+	this.insideVoid = true;
 
-	var ruleListNode = voidNode.children[0]
-	this.visit(ruleListNode)
+	var ruleListNode = voidNode.children[0];
+	this.visit(ruleListNode);
 
-	this.parentVoid = parentVoid
+	this.insideVoid = insideVoid;
 
-	return ruleListNode.children
-}
+	return ruleListNode.children;
+};

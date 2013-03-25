@@ -3,51 +3,52 @@
  *
  * Find medias matching the passed media queries
  */
-'use strict'
+'use strict';
 
-var _ = require('../helper')
-var Node = require('../node')
-var Visitor = require('../visitor')
+var _ = require('../helper');
+var Node = require('../node');
+var Visitor = require('../visitor');
 
-var MediaFilter = module.exports = function() {}
+var MediaFilter = module.exports = function() {};
 
-MediaFilter.stop = {}
+MediaFilter.stop = {};
 
-MediaFilter.prototype = new Visitor()
+MediaFilter.prototype = new Visitor();
 
-MediaFilter.prototype.filter = function(ast, mediaQueries, options) {
-	this.mediaQueries = mediaQueries
-	this.mediaNodes = []
+MediaFilter.prototype.filter = function(ast, mediaQueryListNode) {
+	this.mediaQueryListNode = mediaQueryListNode;
+	this.mediaNodes = [];
 
 	try {
-		this.visit(ast)
+		this.visit(ast);
 	} catch (error) {
-		if (error !== MediaFilter.stop)
-			throw error
+		if (error !== MediaFilter.stop) {
+			throw error;
+		}
 	}
 
-	return this.mediaNodes
-}
+	return this.mediaNodes;
+};
 
 MediaFilter.prototype.visitRoot =
 MediaFilter.prototype.visitVoid =
 MediaFilter.prototype.visitRuleset =
-MediaFilter.prototype.visitRuleList = MediaFilter.prototype.visitNode
+MediaFilter.prototype.visitRuleList = MediaFilter.prototype.visitNode;
 
-MediaFilter.prototype.visitNode = _.noop
+MediaFilter.prototype.visitNode = _.noop;
 
 MediaFilter.prototype.visitMedia = function(mediaNode) {
-	var mediaQueryListNode = mediaNode.children[0]
-	var mediaQueries = mediaQueryListNode.children
-	var ruleListNode = mediaNode.children[1]
+	var mediaQueryListNode = mediaNode.children[0];
+	var ruleListNode = mediaNode.children[1];
 
-	if (mediaQueries === this.mediaQueries) {
-		this.mediaNodes.push(mediaNode)
-		throw MediaFilter.stop
+	if (mediaQueryListNode === this.mediaQueryListNode) {
+		this.mediaNodes.push(mediaNode);
+		throw MediaFilter.stop;
 	}
 
-	if (Node.equal(mediaQueries, this.mediaQueries))
-		this.mediaNodes.push(mediaNode)
-	else
-		this.visit(ruleListNode)
-}
+	if (Node.equal(mediaQueryListNode, this.mediaQueryListNode)) {
+		this.mediaNodes.push(mediaNode);
+	} else {
+		this.visit(ruleListNode);
+	}
+};

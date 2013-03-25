@@ -22,7 +22,7 @@
 					<li><a href="#overview">Overview</a></li>
 					<li><a href="#installation">Installation</a></li>
 					<li><a href="#usage">Usage</a></li>
-					<li><a href="#feedback">Feedback</a></li>
+					<li><a href="#support">Support</a></li>
 					<li class="separator"><span class="menu-separator-text">Language</span></li>
 					<li><a href="#rule-set">Rule Set</a></li>
 					<li><a href="#@media">@media</a></li>
@@ -32,13 +32,13 @@
 					<li><a href="#operation">Operation</a></li>
 					<li><a href="#@if">@if</a></li>
 					<li><a href="#@for">@for</a></li>
-					<li><a href="#mixin">Mixin</a></li>
+					<li><a href="#@function">@function</a></li>
 					<li><a href="#@extend">@extend</a></li>
-					<li><a href="#@extend-all">@extend-all</a></li>
 					<li><a href="#@void">@void</a></li>
 					<li><a href="#@import">@import</a></li>
 					<li><a href="#scope">Scope</a></li>
 					<li><a href="#@block">@block</a></li>
+					<li><a href="#@module">@module</a></li>
 					<li><a href="#prefix">Prefix</a></li>
 				</ul>
 			</li>
@@ -46,7 +46,7 @@
 		</ul>
 	</nav>
 
-	<p><a id="download-button" href="dist/roole.min.js">Download Roole <span id="version">0.3.1</span></a></p>
+	<p><a id="download-button" href="dist/roole.min.js">Download Roole <span id="version">0.4.0</span></a></p>
 	<p><a id="fork-button" href="https://github.com/curvedmark/roole">or View Source on GitHub</a></p>
 </header>
 
@@ -116,7 +116,7 @@
 	<p>Define your own way of generating rules:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-variable">$button</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$color</span>, <span class="cm-variable">$bg-color</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />  <span class="cm-property">color</span>: <span class="cm-variable">$color</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-variable">$bg-color</span>;<br />};<br /><br /><span class="cm-selector">.submit</span> {<br />  <span class="cm-variable">$button</span>(<span class="cm-value">black</span>, <span class="cm-value">white</span>);<br />}<br /><br /><span class="cm-selector">.reset</span> {<br />  <span class="cm-variable">$button</span>(<span class="cm-value">red</span>, <span class="cm-value">white</span>);<br />}</code></pre>
+				<pre><code><span class="cm-variable">$button</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@function</span> <span class="cm-variable">$color</span>, <span class="cm-variable">$bg-color</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />  <span class="cm-property">color</span>: <span class="cm-variable">$color</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-variable">$bg-color</span>;<br />};<br /><br /><span class="cm-selector">.submit</span> {<br />  <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$button</span>(<span class="cm-value">black</span>, <span class="cm-value">white</span>);<br />}<br /><br /><span class="cm-selector">.reset</span> {<br />  <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$button</span>(<span class="cm-value">red</span>, <span class="cm-value">white</span>);<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.submit</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />  <span class="cm-property">color</span>: <span class="cm-value">black</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-value">white</span>;<br />}<br /><br /><span class="cm-selector">.reset</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />  <span class="cm-property">color</span>: <span class="cm-value">red</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-value">white</span>;<br />}</samp></pre>
@@ -130,20 +130,6 @@
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.button</span>,<br /><span class="cm-selector">.submit</span>,<br /><span class="cm-selector">.reset</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />  <span class="cm-property">color</span>: <span class="cm-value">black</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-value">white</span>;<br />}<br /><br /><span class="cm-selector">.reset</span> {<br />  <span class="cm-property">color</span>: <span class="cm-value">red</span>;<br />}</samp></pre>
-			</div>
-	</figure>
-	<hr></hr>
-	<p>Discard unextend rules:</p>
-	<figure class="snippet">
-			<div class="input cm-s-tomorrow lang-roole">
-				<div class="file">
-					<div class="name">framework.css</div>
-					<pre><code><span class="cm-selector">.button</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}<br /><br /><span class="cm-selector">.tabs</span> {<br />  <span class="cm-property">overflow</span>: <span class="cm-value">hidden</span>;<br />}</code></pre>
-				</div>
-				<pre><code><span class="cm-at-rule">@void</span> {<br />  <span class="cm-at-rule">@import</span> <span class="cm-string">'framework.css'</span>;<br />}<br /><br /><span class="cm-selector">#submit</span> {<br />  <span class="cm-at-rule">@extend</span> <span class="cm-selector">.button</span>;<br />}</code></pre>
-			</div>
-			<div class="output cm-s-tomorrow lang-css">
-				<pre><samp><span class="cm-selector">#submit</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}</samp></pre>
 			</div>
 	</figure>
 	<hr></hr>
@@ -196,13 +182,13 @@
 </li>
 <li><p><code>precision</code> (default: <code>3</code>) - max number of digits to used for decimal numbers when generating CSS</p>
 </li>
-<li><p><code>prefix</code> (default: <code>["webkit", "moz", "ms", "o"]</code>) - vendor names to use when prefixing rules, use <code>[]</code> or <code>null</code> to disable prefixing</p>
+<li><p><code>prefix</code> (default: <code>"webkit moz ms o"</code>) - space-separated vendor names to use when prefixing rules</p>
 </li>
 <li><p><code>skipPrefixed</code> (default: <code>false</code>) - skip prefixing with vendor names whose corresponding prefixed rule already exists</p>
 </li>
 </ul>
 </li>
-<li><p><code>callback(error, css)</code> - a function will be called when done generating CSS:</p>
+<li><p><code>callback(error, css)</code> - a function will be called when CSS is generated:</p>
 <ul>
 <li><p><code>error</code> - <code>null</code> if there was no error when generating CSS, otherwise an error object</p>
 </li>
@@ -397,10 +383,10 @@
 	</figure>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-variable">$lt-desktop</span> <span class="cm-operator">=</span> <span class="cm-string">'(max-width: 1199px)'</span>;<br /><span class="cm-variable">$gt-phone</span> <span class="cm-operator">=</span> <span class="cm-string">'(min-width: 768px)'</span>;<br /><br /><span class="cm-at-rule">@media</span> <span class="cm-variable">$gt-phone</span> <span class="cm-selector">and</span> <span class="cm-variable">$lt-desktop</span> {<br />  <span class="cm-selector">body</span> {<br />    <span class="cm-property">width</span>: <span class="cm-value">800px</span>;<br />  }<br />}</code></pre>
+				<pre><code><span class="cm-variable">$lt-desktop</span> <span class="cm-operator">=</span> <span class="cm-string">'(max-width: 979px)'</span>;<br /><span class="cm-variable">$gt-phone</span> <span class="cm-operator">=</span> <span class="cm-string">'(min-width: 768px)'</span>;<br /><br /><span class="cm-at-rule">@media</span> <span class="cm-variable">$gt-phone</span> <span class="cm-selector">and</span> <span class="cm-variable">$lt-desktop</span> {<br />  <span class="cm-selector">body</span> {<br />    <span class="cm-property">width</span>: <span class="cm-value">960px</span>;<br />  }<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
-				<pre><samp><span class="cm-at-rule">@media</span> <span class="cm-selector">(</span><span class="cm-selector">min-width</span><span class="cm-selector">:</span> <span class="cm-value">768px</span><span class="cm-selector">)</span> <span class="cm-selector">and</span> <span class="cm-selector">(</span><span class="cm-selector">max-width</span><span class="cm-selector">:</span> <span class="cm-value">1199px</span><span class="cm-selector">)</span> {<br />  <span class="cm-selector">body</span> {<br />    <span class="cm-property">width</span>: <span class="cm-value">800px</span>;<br />  }<br />}</samp></pre>
+				<pre><samp><span class="cm-at-rule">@media</span> <span class="cm-selector">(</span><span class="cm-selector">min-width</span><span class="cm-selector">:</span> <span class="cm-value">768px</span><span class="cm-selector">)</span> <span class="cm-selector">and</span> <span class="cm-selector">(</span><span class="cm-selector">max-width</span><span class="cm-selector">:</span> <span class="cm-value">979px</span><span class="cm-selector">)</span> {<br />  <span class="cm-selector">body</span> {<br />    <span class="cm-property">width</span>: <span class="cm-value">960px</span>;<br />  }<br />}</samp></pre>
 			</div>
 	</figure>
 	<hr></hr>
@@ -409,7 +395,7 @@
 	<p>Variables can be interpolated into doubled-quoted strings:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-variable">$number</span> <span class="cm-operator">=</span> <span class="cm-value">12</span>;<br /><br /><span class="cm-selector">.heading</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Chapter </span><span class="cm-variable">$number</span><span class="cm-string">: </span><span class="cm-string">"</span>;<br />}</code></pre>
+				<pre><code><span class="cm-variable">$number</span> <span class="cm-operator">=</span> <span class="cm-value">12</span>;<br /><br /><span class="cm-selector">.heading</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"</span><span class="cm-string">Chapter </span><span class="cm-variable">$number</span><span class="cm-string">: </span><span class="cm-string">"</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.heading</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Chapter 12: "</span>;<br />}</samp></pre>
@@ -447,7 +433,7 @@
 	<p>Use <code>\$</code> to escape variables inside strings:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-selector">.heading</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Chapter </span><span class="cm-string">\$</span><span class="cm-string">number: </span><span class="cm-string">"</span>;<br />}</code></pre>
+				<pre><code><span class="cm-selector">.heading</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"</span><span class="cm-string">Chapter </span><span class="cm-string">\$</span><span class="cm-string">number: </span><span class="cm-string">"</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.heading</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Chapter \$number: "</span>;<br />}</samp></pre>
@@ -457,7 +443,7 @@
 	<p>Wrap the variable in curly braces <code>{}</code> to seperate characters come after it, which would otherwise be part of its name:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-variable">$chapter</span> <span class="cm-operator">=</span> <span class="cm-value">4</span>;<br /><br /><span class="cm-selector">.figcaption</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Figure </span>{<span class="cm-variable">$chapter</span>}<span class="cm-string">-12: </span><span class="cm-string">"</span>;<br />}</code></pre>
+				<pre><code><span class="cm-variable">$chapter</span> <span class="cm-operator">=</span> <span class="cm-value">4</span>;<br /><br /><span class="cm-selector">.figcaption</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"</span><span class="cm-string">Figure </span>{<span class="cm-variable">$chapter</span>}<span class="cm-string">-12: </span><span class="cm-string">"</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.figcaption</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Figure 4-12: "</span>;<br />}</samp></pre>
@@ -475,7 +461,7 @@
 	<p>Use <code>\{</code> to escape it:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-variable">$chapter</span> <span class="cm-operator">=</span> <span class="cm-value">4</span>;<br /><br /><span class="cm-selector">.figcaption</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Figure </span><span class="cm-string">\{</span><span class="cm-variable">$chapter</span><span class="cm-string">}-12: </span><span class="cm-string">"</span>;<br />}</code></pre>
+				<pre><code><span class="cm-variable">$chapter</span> <span class="cm-operator">=</span> <span class="cm-value">4</span>;<br /><br /><span class="cm-selector">.figcaption</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"</span><span class="cm-string">Figure </span><span class="cm-string">\{</span><span class="cm-variable">$chapter</span><span class="cm-string">}-12: </span><span class="cm-string">"</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.figcaption</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Figure \{4}-12: "</span>;<br />}</samp></pre>
@@ -485,7 +471,7 @@
 	<p>If the curly brace does not form an interpolation there is no need to escape it:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-selector">.figcaption</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Figure </span><span class="cm-string">{</span><span class="cm-string">\$</span><span class="cm-string">chapter}-12: </span><span class="cm-string">"</span>;<br />}</code></pre>
+				<pre><code><span class="cm-selector">.figcaption</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"</span><span class="cm-string">Figure </span><span class="cm-string">{</span><span class="cm-string">\$</span><span class="cm-string">chapter}-12: </span><span class="cm-string">"</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.figcaption</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"Figure {\$chapter}-12: "</span>;<br />}</samp></pre>
@@ -493,7 +479,7 @@
 	</figure>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-selector">.title</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"latex </span><span class="cm-string">\\</span><span class="cm-string">hat</span><span class="cm-string">{</span><span class="cm-string">x}</span><span class="cm-string">"</span>;<br />}</code></pre>
+				<pre><code><span class="cm-selector">.title</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"</span><span class="cm-string">latex </span><span class="cm-string">\\</span><span class="cm-string">hat</span><span class="cm-string">{</span><span class="cm-string">x}</span><span class="cm-string">"</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.title</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">"latex \\hat{x}"</span>;<br />}</samp></pre>
@@ -548,14 +534,13 @@
 	<hr></hr>
 	<p>Arithmetic operations can be combined with assignments:</p>
 	<figure class="snippet">
-			<pre class="cm-s-tomorrow"><code>$text = 'Hello, ';
-
-.guest::before {
-  $text += 'Guest';
-  content: $text;
-}</code></pre>
+			<div class="input cm-s-tomorrow lang-roole">
+				<pre><code><span class="cm-variable">$text</span> <span class="cm-operator">=</span> <span class="cm-string">'Hello, '</span>;<br /><br /><span class="cm-selector">.guest</span><span class="cm-selector">::before</span> {<br />  <span class="cm-variable">$text</span> <span class="cm-operator">+=</span> <span class="cm-string">'Guest'</span>;<br />  <span class="cm-property">content</span>: <span class="cm-variable">$text</span>;<br />}</code></pre>
+			</div>
+			<div class="output cm-s-tomorrow lang-css">
+				<pre><samp><span class="cm-selector">.guest</span><span class="cm-selector">::before</span> {<br />  <span class="cm-property">content</span>: <span class="cm-string">'Hello, Guest'</span>;<br />}</samp></pre>
+			</div>
 	</figure>
-	<p class="info">Will be implemented in a future version.</p>
 	<hr></hr>
 	<p>Comparison operation are also supported, which comes in handy when specifying <code>@if</code> conditions (see the next section).</p>
 	<h3><a id="@if" class="bookmark"></a>@if</h3>
@@ -663,7 +648,7 @@
 	<p>Ranges are essentially lists, so regular lists works as well:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-at-rule">@for</span> <span class="cm-variable">$icon</span> <span class="cm-at-rule">in</span> <span class="cm-value">arrow</span> <span class="cm-value">star</span> <span class="cm-value">heart</span> {<br />  <span class="cm-selector">.icon-</span><span class="cm-variable">$icon</span> {<br />    <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-variable">"$icon</span><span class="cm-string">.png</span><span class="cm-string">"</span>);<br />  }<br />}</code></pre>
+				<pre><code><span class="cm-at-rule">@for</span> <span class="cm-variable">$icon</span> <span class="cm-at-rule">in</span> <span class="cm-value">arrow</span> <span class="cm-value">star</span> <span class="cm-value">heart</span> {<br />  <span class="cm-selector">.icon-</span><span class="cm-variable">$icon</span> {<br />    <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"</span><span class="cm-variable">$icon</span><span class="cm-string">.png</span><span class="cm-string">"</span>);<br />  }<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.icon-arrow</span> {<br />  <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"arrow.png"</span>);<br />}<br /><br /><span class="cm-selector">.icon-star</span> {<br />  <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"star.png"</span>);<br />}<br /><br /><span class="cm-selector">.icon-heart</span> {<br />  <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"heart.png"</span>);<br />}</samp></pre>
@@ -708,11 +693,11 @@
 				<pre><samp><span class="cm-selector">.icon-arrow</span> {<br />  <span class="cm-property">background-position</span>: <span class="cm-value">0</span> <span class="cm-value">0px</span>;<br />}<br /><br /><span class="cm-selector">.icon-star</span> {<br />  <span class="cm-property">background-position</span>: <span class="cm-value">0</span> <span class="cm-value">20px</span>;<br />}<br /><br /><span class="cm-selector">.icon-heart</span> {<br />  <span class="cm-property">background-position</span>: <span class="cm-value">0</span> <span class="cm-value">40px</span>;<br />}</samp></pre>
 			</div>
 	</figure>
-	<h3><a id="mixin" class="bookmark"></a>Mixin</h3>
-	<p>Mixins allow you to store blocks of rules in variables for later use:</p>
+	<h3><a id="@function" class="bookmark"></a>@function</h3>
+	<p>You can store blocks of rules in <code>@function</code>, and mix them in other places with <code>@mixin</code>:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-variable">$clearfix</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@mixin</span> {<br />  <span class="cm-property">*</span><span class="cm-property">zoom</span>: <span class="cm-value">1</span>;<br />  <span class="cm-operator">&amp;</span><span class="cm-selector">:before</span>,<br />  <span class="cm-operator">&amp;</span><span class="cm-selector">:after</span> {<br />    <span class="cm-property">content</span>: <span class="cm-string">" </span><span class="cm-string">"</span>;<br />    <span class="cm-property">display</span>: <span class="cm-value">table</span>;<br />  }<br />  <span class="cm-operator">&amp;</span><span class="cm-selector">:after</span> {<br />    <span class="cm-property">clear</span>: <span class="cm-value">both</span>;<br />  }<br />};<br /><br /><span class="cm-selector">ul</span> {<br />  <span class="cm-variable">$clearfix</span>();<br />}</code></pre>
+				<pre><code><span class="cm-variable">$clearfix</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@function</span> {<br />  <span class="cm-property">*</span><span class="cm-property">zoom</span>: <span class="cm-value">1</span>;<br />  <span class="cm-operator">&amp;</span><span class="cm-selector">:before</span>,<br />  <span class="cm-operator">&amp;</span><span class="cm-selector">:after</span> {<br />    <span class="cm-property">content</span>: <span class="cm-string">"</span><span class="cm-string"> </span><span class="cm-string">"</span>;<br />    <span class="cm-property">display</span>: <span class="cm-value">table</span>;<br />  }<br />  <span class="cm-operator">&amp;</span><span class="cm-selector">:after</span> {<br />    <span class="cm-property">clear</span>: <span class="cm-value">both</span>;<br />  }<br />};<br /><br /><span class="cm-selector">ul</span> {<br />  <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$clearfix</span>();<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">ul</span> {<br />  <span class="cm-property">*</span><span class="cm-property">zoom</span>: <span class="cm-value">1</span>;<br />}<br />  <span class="cm-selector">ul</span><span class="cm-selector">:before</span>,<br />  <span class="cm-selector">ul</span><span class="cm-selector">:after</span> {<br />    <span class="cm-property">content</span>: <span class="cm-string">" "</span>;<br />    <span class="cm-property">display</span>: <span class="cm-value">table</span>;<br />  }<br />  <span class="cm-selector">ul</span><span class="cm-selector">:after</span> {<br />    <span class="cm-property">clear</span>: <span class="cm-value">both</span>;<br />  }</samp></pre>
@@ -720,52 +705,50 @@
 	</figure>
 	<p>(Hat tip to <a href="http://nicolasgallagher.com/">Nicolas Gallagher</a>, for this example uses his <a href="http://nicolasgallagher.com/micro-clearfix-hack/">micro clearfix</a>)</p>
 	<hr></hr>
-	<p>Mixins can have parameters, which can also have a default value:</p>
+	<p>Or you can ask it to perform some calculations, and return the value with <code>@return</code>:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-variable">$button</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$color</span>, <span class="cm-variable">$bg-color</span>, <span class="cm-variable">$size</span> <span class="cm-operator">=</span> <span class="cm-value">large</span> {<br />  <span class="cm-property">color</span>: <span class="cm-variable">$color</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-variable">$bg-color</span>;<br />  <span class="cm-at-rule">@if</span> <span class="cm-variable">$size</span> <span class="cm-operator">is</span> <span class="cm-value">small</span> {<br />    <span class="cm-property">font-size</span>: <span class="cm-value">12px</span>;<br />  } <span class="cm-at-rule">@else if</span> <span class="cm-variable">$size</span> <span class="cm-operator">is</span> <span class="cm-value">large</span> {<br />    <span class="cm-property">font-size</span>: <span class="cm-value">14px</span>;<br />  }<br />};<br /><br /><span class="cm-selector">#submit</span> {<br />  <span class="cm-variable">$button</span>(<span class="cm-value">#000</span>, <span class="cm-value">#fff</span>);<br />}</code></pre>
+				<pre><code><span class="cm-variable">$width</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@function</span> {<br />  <span class="cm-variable">$side-bar</span> <span class="cm-operator">=</span> <span class="cm-value">250px</span>;<br />  <span class="cm-variable">$main</span> <span class="cm-operator">=</span> <span class="cm-value">710px</span>;<br /><br />  <span class="cm-at-rule">@return</span> <span class="cm-variable">$side-bar</span> <span class="cm-operator">+</span> <span class="cm-variable">$main</span>;<br />};<br /><br /><span class="cm-selector">body</span> {<br />  <span class="cm-property">width</span>: <span class="cm-variable">$width</span>();<br />}</code></pre>
+			</div>
+			<div class="output cm-s-tomorrow lang-css">
+				<pre><samp><span class="cm-selector">body</span> {<br />  <span class="cm-property">width</span>: <span class="cm-value">960px</span>;<br />}</samp></pre>
+			</div>
+	</figure>
+	<hr></hr>
+	<p><code>@function</code> can have parameters, which can also have a default value:</p>
+	<figure class="snippet">
+			<div class="input cm-s-tomorrow lang-roole">
+				<pre><code><span class="cm-variable">$button</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@function</span> <span class="cm-variable">$color</span>, <span class="cm-variable">$bg-color</span>, <span class="cm-variable">$size</span> <span class="cm-operator">=</span> <span class="cm-value">large</span> {<br />  <span class="cm-property">color</span>: <span class="cm-variable">$color</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-variable">$bg-color</span>;<br />  <span class="cm-at-rule">@if</span> <span class="cm-variable">$size</span> <span class="cm-operator">is</span> <span class="cm-value">small</span> {<br />    <span class="cm-property">font-size</span>: <span class="cm-value">12px</span>;<br />  } <span class="cm-at-rule">@else if</span> <span class="cm-variable">$size</span> <span class="cm-operator">is</span> <span class="cm-value">large</span> {<br />    <span class="cm-property">font-size</span>: <span class="cm-value">14px</span>;<br />  }<br />};<br /><br /><span class="cm-selector">#submit</span> {<br />  <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$button</span>(<span class="cm-value">#000</span>, <span class="cm-value">#fff</span>);<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">#submit</span> {<br />  <span class="cm-property">color</span>: <span class="cm-value">#000</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-value">#fff</span>;<br />  <span class="cm-property">font-size</span>: <span class="cm-value">14px</span>;<br />}</samp></pre>
 			</div>
 	</figure>
 	<hr></hr>
-	<p>Arguments passed to a mixin can also be accessed dynamically using <code>$arguments</code>:</p>
-	<figure class="snippet">
-			<pre class="cm-s-tomorrow"><code>$social-icons = @mixin {
-  @for $icon in $arguments {
-    .icon-$icon {
-      background: url("$icon.png");
-    }
-  }
-};
-
-#social {
-  $social-icons(twitter, google, facebook);
-}</code></pre>
-	</figure>
-	<p class="info">Will be implemented in a future version.</p>
-	<hr></hr>
-	<p>Use rest parameters to capture multiple arguments:</p>
-	<figure class="snippet">
-			<pre class="cm-s-tomorrow"><code>$social-icons = @mixin $size, ...$icons {
-  @for $icon in $icons {
-    .icon-$icon {
-      background: url($size/$icon.png);
-    }
-  }
-};
-
-#social {
-  $social-icons(large, twitter, facebook, google);
-}</code></pre>
-	</figure>
-	<p class="info">Will be implemented in a future version.</p>
-	<hr></hr>
-	<p>Unpassed parameters have a <code>null</code> value:</p>
+	<p>Arguments passed to a function can also be accessed dynamically using <code>$arguments</code>:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-variable">$button</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$color</span>, <span class="cm-variable">$bg-color</span>, <span class="cm-variable">$size</span> {<br />  <span class="cm-property">color</span>: <span class="cm-variable">$color</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-variable">$bg-color</span>;<br />  <span class="cm-at-rule">@if</span> <span class="cm-variable">$size</span> <span class="cm-operator">is</span> <span class="cm-value">null</span> {<br />    <span class="cm-property">font-size</span>: <span class="cm-value">12px</span>;<br />  } <span class="cm-at-rule">@else</span> {<br />    <span class="cm-property">font-size</span>: <span class="cm-value">14px</span>;<br />  }<br />};<br /><br /><span class="cm-selector">#submit</span> {<br />  <span class="cm-variable">$button</span>(<span class="cm-value">#000</span>, <span class="cm-value">#fff</span>);<br />}</code></pre>
+				<pre><code><span class="cm-variable">$social-icons</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@function</span> {<br />  <span class="cm-at-rule">@for</span> <span class="cm-variable">$icon</span> <span class="cm-at-rule">in</span> <span class="cm-variable">$arguments</span> {<br />    <span class="cm-selector">.icon-</span><span class="cm-variable">$icon</span> {<br />      <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"</span><span class="cm-variable">$icon</span><span class="cm-string">.png</span><span class="cm-string">"</span>);<br />    }<br />  }<br />};<br /><br /><span class="cm-selector">#social</span> {<br />  <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$social-icons</span>(<span class="cm-value">twitter</span>, <span class="cm-value">facebook</span>);<br />}</code></pre>
+			</div>
+			<div class="output cm-s-tomorrow lang-css">
+				<pre><samp><span class="cm-selector">#social</span> <span class="cm-selector">.icon-twitter</span> {<br />  <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"twitter.png"</span>);<br />}<br /><br /><span class="cm-selector">#social</span> <span class="cm-selector">.icon-facebook</span> {<br />  <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"facebook.png"</span>);<br />}</samp></pre>
+			</div>
+	</figure>
+	<hr></hr>
+	<p>Use rest parameter to capture multiple arguments:</p>
+	<figure class="snippet">
+			<div class="input cm-s-tomorrow lang-roole">
+				<pre><code><span class="cm-variable">$social-icons</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@function</span> <span class="cm-variable">$size</span>, <span class="cm-operator">...</span><span class="cm-variable">$icons</span> {<br />  <span class="cm-at-rule">@for</span> <span class="cm-variable">$icon</span> <span class="cm-at-rule">in</span> <span class="cm-variable">$icons</span> {<br />    <span class="cm-selector">.icon-</span><span class="cm-variable">$icon</span> {<br />      <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"</span><span class="cm-variable">$size</span><span class="cm-string">/</span><span class="cm-variable">$icon</span><span class="cm-string">.png</span><span class="cm-string">"</span>);<br />    }<br />  }<br />};<br /><br /><span class="cm-selector">#social</span> {<br />  <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$social-icons</span>(<span class="cm-value">large</span>, <span class="cm-value">twitter</span>, <span class="cm-value">facebook</span>);<br />}</code></pre>
+			</div>
+			<div class="output cm-s-tomorrow lang-css">
+				<pre><samp><span class="cm-selector">#social</span> <span class="cm-selector">.icon-twitter</span> {<br />  <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"large/twitter.png"</span>);<br />}<br /><br /><span class="cm-selector">#social</span> <span class="cm-selector">.icon-facebook</span> {<br />  <span class="cm-property">background</span>: <span class="cm-operator">url</span>(<span class="cm-string">"large/facebook.png"</span>);<br />}</samp></pre>
+			</div>
+	</figure>
+	<hr></hr>
+	<p>Unassigned parameters have value <code>null</code>:</p>
+	<figure class="snippet">
+			<div class="input cm-s-tomorrow lang-roole">
+				<pre><code><span class="cm-variable">$button</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@function</span> <span class="cm-variable">$color</span>, <span class="cm-variable">$bg-color</span>, <span class="cm-variable">$size</span> {<br />  <span class="cm-property">color</span>: <span class="cm-variable">$color</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-variable">$bg-color</span>;<br />  <span class="cm-at-rule">@if</span> <span class="cm-variable">$size</span> <span class="cm-operator">is</span> <span class="cm-value">null</span> {<br />    <span class="cm-property">font-size</span>: <span class="cm-value">12px</span>;<br />  } <span class="cm-at-rule">@else</span> {<br />    <span class="cm-property">font-size</span>: <span class="cm-value">14px</span>;<br />  }<br />};<br /><br /><span class="cm-selector">#submit</span> {<br />  <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$button</span>(<span class="cm-value">#000</span>, <span class="cm-value">#fff</span>);<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">#submit</span> {<br />  <span class="cm-property">color</span>: <span class="cm-value">#000</span>;<br />  <span class="cm-property">background-color</span>: <span class="cm-value">#fff</span>;<br />  <span class="cm-property">font-size</span>: <span class="cm-value">12px</span>;<br />}</samp></pre>
@@ -822,7 +805,7 @@
 			</div>
 	</figure>
 	<hr></hr>
-	<p>Note that selector are matched exactly, so <code>.icon</code> will not match <code>.button .icon</code>:</p>
+	<p>Note that selectors are matched exactly, so <code>.icon</code> will not match <code>.button .icon</code>:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
 				<pre><code><span class="cm-selector">.icon</span> {<br />  <span class="cm-property">font-family</span>: <span class="cm-value">icon-font</span>;<br />}<br /><br /><span class="cm-selector">.button</span> <span class="cm-selector">.icon</span> {<br />  <span class="cm-property">font-family</span>: <span class="cm-value">button-font</span>;<br />}<br /><br /><span class="cm-selector">.button</span> <span class="cm-selector">.edit-icon</span> {<br />  <span class="cm-at-rule">@extend</span> <span class="cm-selector">.icon</span>;<br />  <span class="cm-property">content</span>: <span class="cm-string">'i'</span>;<br />}</code></pre>
@@ -851,16 +834,6 @@
 				<pre><samp><span class="cm-selector">.button</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">block</span>;<br />}<br /><br /><span class="cm-at-rule">@media</span> <span class="cm-selector">(</span><span class="cm-selector">min-width</span><span class="cm-selector">:</span> <span class="cm-value">512px</span><span class="cm-selector">)</span> {<br />  <span class="cm-selector">.button</span>,<br />  <span class="cm-selector">#submit</span> {<br />    <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />  }<br />}<br /><br /><span class="cm-at-rule">@media</span> <span class="cm-selector">(</span><span class="cm-selector">min-width</span><span class="cm-selector">:</span> <span class="cm-value">1024px</span><span class="cm-selector">)</span> {<br />  <span class="cm-selector">.button</span> {<br />    <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />    <span class="cm-property">border</span>: <span class="cm-value">1px</span> <span class="cm-value">solid</span>;<br />  }<br />}</samp></pre>
 			</div>
 	</figure>
-	<h3><a id="@extend-all" class="bookmark"></a>@extend-all</h3>
-	<p><code>@extend-all</code> works much like <code>@extend</code>, but instead of matching selectors exactly, it matches any selector that contains the specified selector anywhere within itself:</p>
-	<figure class="snippet">
-			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-selector">.menu</span> <span class="cm-selector">.item</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">block</span>;<br />}<br /><br /><span class="cm-selector">.menu</span><span class="cm-selector">.active</span> {<br />  <span class="cm-property">visibility</span>: <span class="cm-value">visible</span>;<br />}<br /><br /><span class="cm-selector">.menu</span> <span class="cm-selector">.menu</span> {<br />  <span class="cm-property">left</span>: <span class="cm-value">0</span>;<br />}<br /><br /><span class="cm-selector">.nav-menu</span> {<br />  <span class="cm-at-rule">@extend-all</span> <span class="cm-selector">.menu</span>;<br />}</code></pre>
-			</div>
-			<div class="output cm-s-tomorrow lang-css">
-				<pre><samp><span class="cm-selector">.menu</span> <span class="cm-selector">.item</span>,<br /><span class="cm-selector">.nav-menu</span> <span class="cm-selector">.item</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">block</span>;<br />}<br /><br /><span class="cm-selector">.menu</span><span class="cm-selector">.active</span>,<br /><span class="cm-selector">.nav-menu</span><span class="cm-selector">.active</span> {<br />  <span class="cm-property">visibility</span>: <span class="cm-value">visible</span>;<br />}<br /><br /><span class="cm-selector">.menu</span> <span class="cm-selector">.menu</span>,<br /><span class="cm-selector">.nav-menu</span> <span class="cm-selector">.nav-menu</span> {<br />  <span class="cm-property">left</span>: <span class="cm-value">0</span>;<br />}</samp></pre>
-			</div>
-	</figure>
 	<h3><a id="@void" class="bookmark"></a>@void</h3>
 	<p>Rule sets inside <code>@void</code> are removed from the CSS output, unless they are extended by a rule set not inside a <code>@void</code>, but original selectors are always removed:</p>
 	<figure class="snippet">
@@ -879,23 +852,25 @@
 					<div class="name">tabs.roo</div>
 					<pre><code><span class="cm-selector">.tabs</span> {<br />  <span class="cm-selector">.tab</span> {<br />    <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br />  }<br />}</code></pre>
 				</div>
-				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'tabs'</span>;</code></pre>
+				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'./tabs'</span>;</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.tabs</span> <span class="cm-selector">.tab</span> {<br />  <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br />}</samp></pre>
 			</div>
 	</figure>
 	<p><code>.roo</code> will be added if the file's name doesn't end with an extension.</p>
+	<p class="info">Use relative paths (i.e., paths start with <code>./</code> or <code>../</code>) to import files, future version will use paths like <code>'tabs'</code> to import libararies.</p>
 	<hr></hr>
-	<p>Files are not imported if their paths are sepecified using <code>url()</code>, starting with a protocol like <code>http://</code>, containing a variable, or followed by a media query:</p>
+	<p>Files are not imported if their paths are sepecified using <code>url()</code>, starting with a protocol like <code>http://</code>, or followed by a media query:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-operator">url</span>(<span class="cm-string">tabs</span>);<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-operator">url</span>(<span class="cm-string">"tabs</span><span class="cm-string">"</span>);<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">"http://example.com/tabs</span><span class="cm-string">"</span>;<br /><br /><span class="cm-variable">$module</span> <span class="cm-operator">=</span> <span class="cm-string">'tabs'</span>;<br /><span class="cm-at-rule">@import</span> <span class="cm-variable">$module</span>;<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">'tabs'</span> <span class="cm-selector">screen</span>;</code></pre>
+				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-operator">url</span>(<span class="cm-string">./tabs</span>);<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-operator">url</span>(<span class="cm-string">"</span><span class="cm-string">./tabs</span><span class="cm-string">"</span>);<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">"</span><span class="cm-string">http://example.com/tabs</span><span class="cm-string">"</span>;<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">'./tabs'</span> <span class="cm-selector">screen</span>;</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
-				<pre><samp><span class="cm-at-rule">@import</span> <span class="cm-operator">url</span>(<span class="cm-string">tabs</span>);<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-operator">url</span>(<span class="cm-string">"tabs"</span>);<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">"http://example.com/tabs"</span>;<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">'tabs'</span>;<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">'tabs'</span> <span class="cm-selector">screen</span>;</samp></pre>
+				<pre><samp><span class="cm-at-rule">@import</span> <span class="cm-operator">url</span>(<span class="cm-string">./tabs</span>);<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-operator">url</span>(<span class="cm-string">"./tabs"</span>);<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">"http://example.com/tabs"</span>;<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">'./tabs'</span> <span class="cm-selector">screen</span>;</samp></pre>
 			</div>
 	</figure>
+	<p class="info">variables will be allowed in paths in a future version.</p>
 	<hr></hr>
 	<p>Files are only imported once:</p>
 	<figure class="snippet">
@@ -906,13 +881,13 @@
 				</div>
 				<div class="file">
 					<div class="name">tabs.roo</div>
-					<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'reset'</span>;<br /><br /><span class="cm-selector">.tabs</span> {<br />  <span class="cm-selector">.tab</span> {<br />    <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br />  }<br />}</code></pre>
+					<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'./reset'</span>;<br /><br /><span class="cm-selector">.tabs</span> {<br />  <span class="cm-selector">.tab</span> {<br />    <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br />  }<br />}</code></pre>
 				</div>
 				<div class="file">
 					<div class="name">button.roo</div>
-					<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'reset'</span>;<br /><br /><span class="cm-selector">.button</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}</code></pre>
+					<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'./reset'</span>;<br /><br /><span class="cm-selector">.button</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}</code></pre>
 				</div>
-				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'reset'</span>;<br /><span class="cm-at-rule">@import</span> <span class="cm-string">'tabs'</span>;<br /><span class="cm-at-rule">@import</span> <span class="cm-string">'button'</span>;</code></pre>
+				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'./reset'</span>;<br /><span class="cm-at-rule">@import</span> <span class="cm-string">'./tabs'</span>;<br /><span class="cm-at-rule">@import</span> <span class="cm-string">'./button'</span>;</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">body</span> {<br />  <span class="cm-property">margin</span>: <span class="cm-value">0</span>;<br />}<br /><br /><span class="cm-selector">.tabs</span> <span class="cm-selector">.tab</span> {<br />  <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br />}<br /><br /><span class="cm-selector">.button</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}</samp></pre>
@@ -930,7 +905,7 @@
 					<div class="name">sidebar-old-ie.roo</div>
 					<pre><code><span class="cm-selector">.sidebar</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline</span>;<br />}</code></pre>
 				</div>
-				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'sidebar'</span>;<br /><br /><span class="cm-variable">$support-old-ie</span> <span class="cm-operator">=</span> <span class="cm-value">false</span>;<br /><br /><span class="cm-at-rule">@if</span> <span class="cm-variable">$support-old-ie</span> {<br />  <span class="cm-at-rule">@import</span> <span class="cm-string">'sidebar-old-ie'</span>;<br />}</code></pre>
+				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'./sidebar'</span>;<br /><br /><span class="cm-variable">$support-old-ie</span> <span class="cm-operator">=</span> <span class="cm-value">false</span>;<br /><br /><span class="cm-at-rule">@if</span> <span class="cm-variable">$support-old-ie</span> {<br />  <span class="cm-at-rule">@import</span> <span class="cm-string">'./sidebar-old-ie'</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.sidebar</span> {<br />  <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br />  <span class="cm-property">margin-left</span>: <span class="cm-value">20px</span>;<br />}</samp></pre>
@@ -942,7 +917,7 @@
 					<div class="name">framework.roo</div>
 					<pre><code><span class="cm-selector">.button</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}<br /><br /><span class="cm-selector">.tabs</span> <span class="cm-selector">.tab</span> {<br />  <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br />}</code></pre>
 				</div>
-				<pre><code><span class="cm-at-rule">@void</span> {<br />  <span class="cm-at-rule">@import</span> <span class="cm-string">'framework'</span>;<br />}<br /><br /><span class="cm-selector">#submit</span> {<br />  <span class="cm-at-rule">@extend</span> <span class="cm-selector">.button</span>;<br />}</code></pre>
+				<pre><code><span class="cm-at-rule">@void</span> {<br />  <span class="cm-at-rule">@import</span> <span class="cm-string">'./framework'</span>;<br />}<br /><br /><span class="cm-selector">#submit</span> {<br />  <span class="cm-at-rule">@extend</span> <span class="cm-selector">.button</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">#submit</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}</samp></pre>
@@ -954,7 +929,7 @@
 	<p>Variables have to be defined before they can be used. Once defined, they are only available within the boundary of their respective rule block, which defines their scope:</p>
 	<figure class="snippet">
 			<div class="input cm-s-tomorrow lang-roole">
-				<pre><code><span class="cm-variable">$menu</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@mixin</span> {<br />  <span class="cm-variable">$width</span> <span class="cm-operator">=</span> <span class="cm-value">200px</span>;<br />  <span class="cm-property">width</span>: <span class="cm-variable">$width</span>;<br />};<br /><br /><span class="cm-selector">.menu</span> {<br />  <span class="cm-variable">$menu</span>();<br />  <span class="cm-comment">// $width is undefined here</span><br />}</code></pre>
+				<pre><code><span class="cm-variable">$menu</span> <span class="cm-operator">=</span> <span class="cm-at-rule">@function</span> {<br />  <span class="cm-variable">$width</span> <span class="cm-operator">=</span> <span class="cm-value">200px</span>;<br />  <span class="cm-property">width</span>: <span class="cm-variable">$width</span>;<br />};<br /><br /><span class="cm-selector">.menu</span> {<br />  <span class="cm-at-rule">@mixin</span> <span class="cm-variable">$menu</span>();<br />  <span class="cm-comment">// $width is undefined here</span><br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.menu</span> {<br />  <span class="cm-property">width</span>: <span class="cm-value">200px</span>;<br />}</samp></pre>
@@ -978,7 +953,7 @@
 					<div class="name">vars.roo</div>
 					<pre><code><span class="cm-variable">$color</span> <span class="cm-operator">=</span> <span class="cm-value">#000</span>;<br /><span class="cm-variable">$bg-color</span> <span class="cm-operator">=</span> <span class="cm-value">#fff</span>;</code></pre>
 				</div>
-				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'vars'</span>;<br /><br /><span class="cm-selector">#main</span> {<br />  <span class="cm-property">color</span>: <span class="cm-variable">$color</span>;<br />  <span class="cm-property">background</span>: <span class="cm-variable">$bg-color</span>;<br />}</code></pre>
+				<pre><code><span class="cm-at-rule">@import</span> <span class="cm-string">'./vars'</span>;<br /><br /><span class="cm-selector">#main</span> {<br />  <span class="cm-property">color</span>: <span class="cm-variable">$color</span>;<br />  <span class="cm-property">background</span>: <span class="cm-variable">$bg-color</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">#main</span> {<br />  <span class="cm-property">color</span>: <span class="cm-value">#000</span>;<br />  <span class="cm-property">background</span>: <span class="cm-value">#fff</span>;<br />}</samp></pre>
@@ -992,7 +967,7 @@
 					<div class="name">base.roo</div>
 					<pre><code><span class="cm-selector">#main</span> {<br />  <span class="cm-property">color</span>: <span class="cm-variable">$color</span>;<br />  <span class="cm-property">background</span>: <span class="cm-variable">$bg-color</span>;<br />}</code></pre>
 				</div>
-				<pre><code><span class="cm-variable">$color</span> <span class="cm-operator">=</span> <span class="cm-value">#000</span>;<br /><span class="cm-variable">$bg-color</span> <span class="cm-operator">=</span> <span class="cm-value">#fff</span>;<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">'base'</span>;</code></pre>
+				<pre><code><span class="cm-variable">$color</span> <span class="cm-operator">=</span> <span class="cm-value">#000</span>;<br /><span class="cm-variable">$bg-color</span> <span class="cm-operator">=</span> <span class="cm-value">#fff</span>;<br /><br /><span class="cm-at-rule">@import</span> <span class="cm-string">'./base'</span>;</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">#main</span> {<br />  <span class="cm-property">color</span>: <span class="cm-value">#000</span>;<br />  <span class="cm-property">background</span>: <span class="cm-value">#fff</span>;<br />}</samp></pre>
@@ -1011,10 +986,41 @@
 					<div class="name">bar-framework.roo</div>
 					<pre><code><span class="cm-variable">$width</span> <span class="cm-operator">?=</span> <span class="cm-value">100px</span>;<br /><br /><span class="cm-selector">.bar-module</span> {<br />  <span class="cm-property">width</span>: <span class="cm-variable">$width</span>;<br />}</code></pre>
 				</div>
-				<pre><code><span class="cm-at-rule">@block</span> {<br />  <span class="cm-at-rule">@import</span> <span class="cm-string">'foo-framework'</span>;<br />}<br /><br /><span class="cm-at-rule">@block</span> {<br />  <span class="cm-at-rule">@import</span> <span class="cm-string">'bar-framework'</span>;<br />}</code></pre>
+				<pre><code><span class="cm-at-rule">@block</span> {<br />  <span class="cm-at-rule">@import</span> <span class="cm-string">'./foo-framework'</span>;<br />}<br /><br /><span class="cm-at-rule">@block</span> {<br />  <span class="cm-at-rule">@import</span> <span class="cm-string">'./bar-framework'</span>;<br />}</code></pre>
 			</div>
 			<div class="output cm-s-tomorrow lang-css">
 				<pre><samp><span class="cm-selector">.foo-module</span> {<br />  <span class="cm-property">width</span>: <span class="cm-value">200px</span>;<br />}<br /><br /><span class="cm-selector">.bar-module</span> {<br />  <span class="cm-property">width</span>: <span class="cm-value">100px</span>;<br />}</samp></pre>
+			</div>
+	</figure>
+	<h3><a id="@module" class="bookmark"></a>@module</h3>
+	<p><code>@module</code> prepends a name to all class selectors inside it:</p>
+	<figure class="snippet">
+			<div class="input cm-s-tomorrow lang-roole">
+				<pre><code><span class="cm-at-rule">@module</span> <span class="cm-value">foo</span> {<br />  <span class="cm-selector">.button</span> {<br />    <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />  }<br /><br />  <span class="cm-selector">.tabs</span> {<br />    <span class="cm-selector">.tab</span> {<br />      <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br /><br />      <span class="cm-operator">&amp;</span><span class="cm-selector">.active</span> {<br />        <span class="cm-property">border-bottom</span>: <span class="cm-value">none</span>;<br />      }<br />    }<br />  }<br />}</code></pre>
+			</div>
+			<div class="output cm-s-tomorrow lang-css">
+				<pre><samp><span class="cm-selector">.foo-button</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}<br /><br /><span class="cm-selector">.foo-tabs</span> <span class="cm-selector">.foo-tab</span> {<br />  <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br />}<br />  <span class="cm-selector">.foo-tabs</span> <span class="cm-selector">.foo-tab</span><span class="cm-selector">.foo-active</span> {<br />    <span class="cm-property">border-bottom</span>: <span class="cm-value">none</span>;<br />  }</samp></pre>
+			</div>
+	</figure>
+	<p>It can be used to prevent class name collisions between your project and frameworks.</p>
+	<hr></hr>
+	<p>By default it uses <code>-</code> as a separator, you can specifiy a different one using <code>with</code>:</p>
+	<figure class="snippet">
+			<div class="input cm-s-tomorrow lang-roole">
+				<pre><code><span class="cm-at-rule">@module</span> <span class="cm-value">foo</span> <span class="cm-at-rule">with</span> <span class="cm-string">'--'</span> {<br />  <span class="cm-selector">.button</span> {<br />    <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />  }<br /><br />  <span class="cm-selector">.tabs</span> {<br />    <span class="cm-selector">.tab</span> {<br />      <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br /><br />      <span class="cm-operator">&amp;</span><span class="cm-selector">.active</span> {<br />        <span class="cm-property">border-bottom</span>: <span class="cm-value">none</span>;<br />      }<br />    }<br />  }<br />}</code></pre>
+			</div>
+			<div class="output cm-s-tomorrow lang-css">
+				<pre><samp><span class="cm-selector">.foo--button</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}<br /><br /><span class="cm-selector">.foo--tabs</span> <span class="cm-selector">.foo--tab</span> {<br />  <span class="cm-property">float</span>: <span class="cm-value">left</span>;<br />}<br />  <span class="cm-selector">.foo--tabs</span> <span class="cm-selector">.foo--tab</span><span class="cm-selector">.foo--active</span> {<br />    <span class="cm-property">border-bottom</span>: <span class="cm-value">none</span>;<br />  }</samp></pre>
+			</div>
+	</figure>
+	<hr></hr>
+	<p><code>@module</code> can be nested:</p>
+	<figure class="snippet">
+			<div class="input cm-s-tomorrow lang-roole">
+				<pre><code><span class="cm-at-rule">@module</span> <span class="cm-value">foo</span> {<br />  <span class="cm-at-rule">@module</span> <span class="cm-value">bar</span> {<br />    <span class="cm-selector">.button</span> {<br />      <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />    }<br />  }<br />}</code></pre>
+			</div>
+			<div class="output cm-s-tomorrow lang-css">
+				<pre><samp><span class="cm-selector">.foo-bar-button</span> {<br />  <span class="cm-property">display</span>: <span class="cm-value">inline-block</span>;<br />}</samp></pre>
 			</div>
 	</figure>
 	<h3><a id="prefix" class="bookmark"></a>Prefix</h3>
@@ -1049,8 +1055,9 @@
 				<pre><samp><span class="cm-at-rule">@-webkit-keyframes</span> <span class="cm-value">become-round</span> {<br />  <span class="cm-selector">from</span> {<br />    <span class="cm-property">-webkit-border-radius</span>: <span class="cm-value">0</span>;<br />    <span class="cm-property">border-radius</span>: <span class="cm-value">0</span>;<br />  }<br />  <span class="cm-selector">to</span> {<br />    <span class="cm-property">-webkit-border-radius</span>: <span class="cm-value">50%</span>;<br />    <span class="cm-property">border-radius</span>: <span class="cm-value">50%</span>;<br />  }<br />}<br /><br /><span class="cm-at-rule">@-moz-keyframes</span> <span class="cm-value">become-round</span> {<br />  <span class="cm-selector">from</span> {<br />    <span class="cm-property">-moz-border-radius</span>: <span class="cm-value">0</span>;<br />    <span class="cm-property">border-radius</span>: <span class="cm-value">0</span>;<br />  }<br />  <span class="cm-selector">to</span> {<br />    <span class="cm-property">-moz-border-radius</span>: <span class="cm-value">50%</span>;<br />    <span class="cm-property">border-radius</span>: <span class="cm-value">50%</span>;<br />  }<br />}<br /><br /><span class="cm-at-rule">@-o-keyframes</span> <span class="cm-value">become-round</span> {<br />  <span class="cm-selector">from</span> {<br />    <span class="cm-property">border-radius</span>: <span class="cm-value">0</span>;<br />  }<br />  <span class="cm-selector">to</span> {<br />    <span class="cm-property">border-radius</span>: <span class="cm-value">50%</span>;<br />  }<br />}<br /><br /><span class="cm-at-rule">@keyframes</span> <span class="cm-value">become-round</span> {<br />  <span class="cm-selector">from</span> {<br />    <span class="cm-property">border-radius</span>: <span class="cm-value">0</span>;<br />  }<br />  <span class="cm-selector">to</span> {<br />    <span class="cm-property">border-radius</span>: <span class="cm-value">50%</span>;<br />  }<br />}</samp></pre>
 			</div>
 	</figure>
-	<h2><a id="feedback" class="bookmark"></a>Feedback</h2>
-	<p>You are encouraged to watch <a href="https://github.com/curvedmark/roole">the repo on GitHub</a>, and leave comments or open a new issue in <a href="https://github.com/curvedmark/roole/issues">the issue tracker</a>. Before opening a new one, use the search function to make sure the issue is not already reported.</p>
+	<h2><a id="support" class="bookmark"></a>Support</h2>
+	<p>You can leave comments or open a new issue in <a href="https://github.com/curvedmark/roole/issues">the issue tracker</a>. Before opening a new one, use the search function to make sure the issue is not already reported.</p>
+	<p>You can also follow me <a href="https://twitter.com/curvedmark">@curvedmark</a> on twitter.</p>
 </div>
 
 <footer id="footer">

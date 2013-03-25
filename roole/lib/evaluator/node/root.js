@@ -1,12 +1,12 @@
-'use strict'
+'use strict';
 
-var Evaluator = require('../evaluator')
+var Evaluator = require('../evaluator');
 
 Evaluator.prototype.visitRoot = function(rootNode) {
-	var filePath = this.filePath
-	this.filePath = rootNode.filePath
+	var fileName = this.fileName;
+	this.fileName = rootNode.fileName;
 
-	this.visit(rootNode.children)
+	this.visit(rootNode.children);
 
-	this.filePath = filePath
-}
+	this.fileName = fileName;
+};

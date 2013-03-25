@@ -1,6 +1,6 @@
 {
   "name": "roole",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "A language that compiles to CSS",
   "keywords": [
     "css",
@@ -19,18 +19,18 @@
     "url": "git://github.com/curvedmark/roole.git"
   },
   "scripts": {
-    "test": "make test"
+    "test": "make all-test"
   },
   "dependencies": {
-    "mkdirp": "~0.3.4",
-    "commander": "~1.1.1"
+    "mkdirp": "0.3.x",
+    "commander": "1.x"
   },
   "devDependencies": {
-    "pegjs": "git://github.com/curvedmark/pegjs.git#dfe457d27d2a6e75868283c227ecad84f1b25119",
-    "mustache": "~0.7.2",
-    "mocha": "~1.8.1",
-    "coffee-script": "~1.5.0",
-    "uglify-js": "~2.2.2",
-    "jscoverage": "~0.3.4"
+    "pegjs": "git://github.com/dmajda/pegjs.git#798ed6a8a4fbfc36b312ba09d428a5832808d9d6",
+    "mustache": "0.7.x",
+    "mocha": "1.x",
+    "uglify-js": "2.x",
+    "jscoverage": "0.3.x",
+    "jshint": "1.x"
   }
 }
