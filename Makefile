@@ -73,7 +73,7 @@ test/mocha.%: roole/node_modules/mocha/mocha.%
 	cp -f $< $@
 
 merge:
-	git merge -Xsubtree=roole master
+	git merge -Xsubtree=roole -m "Merge branch 'master' into gh-pages" master
 
 node_modules/%:
 	npm install
