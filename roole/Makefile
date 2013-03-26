@@ -131,9 +131,6 @@ coverage/lib/%: node_modules/.bin/jscoverage lib/%
 coverage/test/%: test/% | coverage/test/unit
 	cp $< $@
 
-coverage/test/unit:
-	mkdir -p $@
-
 coverage/package.json: package.json
 	cp $< $@
 
@@ -161,11 +158,16 @@ dist/roole.min.js: \
 	dist/roole.min.js.mustache \
 	package.json
 
-	$< $(word 2,$^) -cm | \
-	 	$(word 3,$^) version=$(VERSION) content=- | \
-		$(word 4,$^) $(word 5,$^) >$@
+	cd dist && \
+		../$< roole.js -cm --source-map roole.min.js.map | \
+	 	../build/json version=$(VERSION) content=- | \
+		../build/mustache roole.min.js.mustache >roole.min.js
 
-browser-test: parser roole test/test.js
+browser-test: parser min test/test.min.js test/vendor/mocha.js test/vendor/mocha.css
+
+test/test.min.js: node_modules/.bin/uglifyjs test/test.js
+	cd test && \
+		../$< test.js -cm -o test.min.js --source-map test.min.js.map
 
 test/test.js: \
 	build/commonjs-stripper \
@@ -178,6 +180,12 @@ test/test.js: \
 	echo >> $@
 	$< $(TEST_FILES) >>$@
 
+test/vendor/mocha.js: node_modules/mocha/mocha.js | test/vendor
+	cp $< $@
+
+test/vendor/mocha.css: node_modules/mocha/mocha.css | test/vendor
+	cp $< $@
+
 node_modules/%:
 	npm install
 
@@ -186,14 +194,19 @@ lint: node_modules/.bin/jshint
 	@$< bin/roole test/assert.js build/* $(JS_FILES)
 	@$< --config test/unit/.jshintrc test/unit
 
-publish: lib/parser/generatedParser.js
-	npm publish
+test/vendor \
+coverage/test/unit:
+	mkdir -p $@
 
 clean:
 	rm -rf \
 		coverage \
 		dist/roole.js \
 		dist/roole.min.js \
-		test/test.js
+		dist/roole.min.js.map \
+		test/vendor \
+		test/test.js \
+		test/test.min.js \
+		test/test.min.js.map
 
 .PHONY: parser test cli-test all-test browser-test coverage roole min  clean
