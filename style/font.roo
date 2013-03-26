@@ -1,5 +1,6 @@
+.changelog-version,
 body {
-	font: 16px/1.5 'Helvetica Nene', Helvetica, Arial, sans-serif;
+	font-family: 'Helvetica Nene', Helvetica, Arial, sans-serif;
 }
 
 #nav > ul > li,

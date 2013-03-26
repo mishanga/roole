@@ -1,0 +1,265 @@
+#!/usr/bin/env node
+'use strict';
+
+var fs = require('fs');
+var marked = require('marked');
+var jsdom = require('jsdom');
+var roole = require('../roole');
+var CodeMirror, dumbElement;
+
+var args = process.argv.slice(2);
+var indexPath = args[0];
+var changelogPath = args[1];
+var mustachePath = args[2];
+var json = {};
+
+parseMarkdown(indexPath, function(elements) {
+	json.main = toIndexJSON(elements);
+
+	parseMarkdown(changelogPath, function(elements) {
+		json.main = json.main.concat(toChangelogJSON(elements));
+		json.top_heading = getHeadings(json.main);
+		json.language_heading = getLanguageHeadings(json.main);
+		json.version = require('../roole/package.json').version;
+
+		console.log(JSON.stringify(json));
+	});
+});
+
+function parseMarkdown(path, callback) {
+	var markdown = readFile(path);
+	var html = toHtml(markdown);
+	toDom(html, callback);
+}
+
+function readFile(path) {
+	return fs.readFileSync(path, 'utf8');
+}
+
+function toHtml(markdown) {
+	return marked(markdown, {
+		breaks: true,
+		langPrefix: '',
+	});
+}
+
+function toDom(html, callback) {
+	var scripts = [
+		'../components/codemirror/addon/runmode/runmode-standalone.js',
+		'../components/codemirror/mode/xml/xml.js',
+		'../components/codemirror/mode/javascript/javascript.js',
+		'./css-mode.js',
+		'./roole-mode.js',
+		'./html-mode.js'
+	];
+
+	jsdom.env({
+		html: html,
+		scripts: scripts,
+		done: function(errors, window) {
+			if (!CodeMirror) {
+				CodeMirror = window.CodeMirror;
+			}
+
+			if (!dumbElement) {
+				var document = window.document;
+				dumbElement = document.createElement('div');
+			}
+
+			if (errors) {
+				throw errors[0];
+			}
+
+			var elements = window.document.body.children;
+			callback([].slice.call(elements, 0));
+		}
+	});
+}
+
+function toIndexJSON(elements) {
+	var imports = [];
+	var insideLanguage = false;
+
+	return elements.map(function(element) {
+		switch (element.nodeName) {
+		case 'H2':
+			var json = convertIndexH2(element);
+			insideLanguage = json.heading.id === 'language';
+			return json;
+
+		case 'P':
+			return convertIndexP(element);
+
+		case 'PRE':
+			return convertIndexPre(element, imports);
+
+		case 'H3':
+			if (insideLanguage) {
+				return convertIndexH3(element);
+			}
+			// fall through
+
+		default:
+			return {element: {html: element.outerHTML}};
+		}
+	}).filter(function(element) {
+		return element;
+	});
+}
+
+function convertIndexH2(h2) {
+	var id = text2id(h2.textContent);
+
+	return {heading: {
+		id: id,
+		content: h2.textContent,
+		level: 2
+	}};
+}
+
+function text2id(text) {
+	return text.toLowerCase().replace(/@/g, '').replace(/ /, '-');
+}
+
+function convertIndexH3(h3) {
+	var id = text2id(h3.textContent);
+
+	return {heading: {
+		id: id,
+		content: h3.textContent,
+		level: 3
+	}};
+}
+
+function convertIndexP(p) {
+	var content = p.innerHTML;
+	var result = /^(INFO|WARNING): ([\s\S]*)/.exec(content);
+	if (result) {
+		p.innerHTML = result[2];
+		p.className = result[1].toLowerCase();
+	}
+
+	return {element: {html: p.outerHTML}};
+}
+
+function convertIndexPre(pre, imports) {
+	var codeElement = pre.children[0];
+	var content = changeIndent(codeElement.textContent);
+	var lang = codeElement.className;
+
+	if (lang !== 'roole') {
+		if (lang) {
+			if (lang === 'html') { lang = 'htmlmixed'; }
+			content = highlight(content, lang);
+		}
+
+		return {snippet: {
+			lang: lang,
+			code: {html: content}
+		}};
+	}
+
+	var result = /^\/\/\s*([\w-]+\.(?:roo|css))\s*([\s\S]+)/.exec(content);
+	if (result) {
+		imports.push({
+			name: result[1],
+			content: result[2],
+			html: highlight(result[2], 'roole')
+		});
+		return;
+	}
+
+	var importedFiles = {}
+	imports.forEach(function(file) {
+		importedFiles[file.name] = file.content;
+	});
+	var output = '';
+	roole.compile(content, {
+		imports: importedFiles,
+		indent: '  ',
+		prettyError: true
+	}, function(error, css) {
+		if (error) {
+			throw error;
+		}
+
+		output = css;
+	});
+
+	var json = {
+		snippet: {
+			input: {
+				lang: 'roole',
+				import: imports.slice(0),
+				html: highlight(content, 'roole')
+			},
+			output: {
+				lang: 'css',
+				html: highlight(output, 'roole')
+			}
+		}
+	};
+	imports.length = 0;
+
+	return json;
+}
+
+function changeIndent(content) {
+	return content.replace(/^ +/gm, function(spaces) {
+		return spaces.replace(/    /g, '  ');
+	});
+}
+
+function highlight(content, lang) {
+	CodeMirror.runMode(content, lang, dumbElement);
+	return dumbElement.innerHTML;
+}
+
+function toChangelogJSON(elements) {
+	var json = {heading: {
+		id: 'changelog',
+		content: 'Change Log',
+		level: 2
+	}};
+	return [json].concat(elements.map(function(element) {
+		switch (element.nodeName) {
+		case 'H2':
+			return convertChangelogH2(element);
+
+		default:
+			return {element: {html: element.outerHTML}};
+		}
+	}));
+}
+
+function convertChangelogH2(h2) {
+	var values = h2.innerHTML.split(' - ');
+	h2.className = 'changelog-version';
+	var time = '<time class="changelog-time">' + values[1] + '</time>';
+	h2.innerHTML = values[0] + time;
+
+	var html = h2.outerHTML
+		.replace(/<h2/i, '<h3')
+		.replace(/h2>/, 'h3>');
+
+	return {element: {html: html}};
+}
+
+function getHeadings(objs) {
+	return objs.filter(function(obj) {
+		return obj.heading
+		    && obj.heading.level === 2
+		    && obj.heading.id !== 'language';
+	}).map(function(obj) {
+		return obj.heading;
+	});
+}
+
+function getLanguageHeadings(objs) {
+	return objs.filter(function(obj) {
+		return obj.heading
+		    && obj.heading.level === 3;
+	}).map(function(obj) {
+		return obj.heading;
+	});
+}

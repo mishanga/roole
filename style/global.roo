@@ -9,6 +9,8 @@
 }
 
 body {
+	font-size: 16px;
+	line-height: 1.5;
 	max-width: $width;
 	margin: 0 auto;
 }
@@ -104,6 +106,12 @@ p > code {
 	position: relative;
 	display: block;
 	top: -80px;
+}
+
+.changelog-time {
+	font-size: 0.5em;
+	color: #bbb;
+	margin-left: 1em;
 }
 
 #logo {

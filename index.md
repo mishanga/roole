@@ -1,4 +1,5 @@
 ## Introduction
+
 Roole is a language that compiles to CSS.
 
 It drew many inspirations from other CSS preprocessing languages like [Sass](http://sass-lang.com/), [LESS](http://lesscss.org/) and [Stylus](http://learnboost.github.com/stylus/).
@@ -168,15 +169,15 @@ roole.compile(input, options, callback)
 
 * `options` - an optional hash object which supports the following options:
 
-  * `indent` (default: `"\t"`) - string used for indentations when generating CSS
+  * `indent` (default: `"\t"`) - indentation string to use in CSS
 
-  * `precision` (default: `3`) - max number of digits to used for decimal numbers when generating CSS
+  * `precision` (default: `3`) - Max number of decimal digits to use in CSS
 
-  * `prefix` (default: `"webkit moz ms o"`) - space-separated vendor names to use when prefixing rules
+  * `prefix` (default: `"webkit moz ms o"`) - space-separated vendor names to use for prefixing
 
-  * `skipPrefixed` (default: `false`) - skip prefixing with vendor names whose corresponding prefixed rule already exists
+  * `skipPrefixed` (default: `false`) - Not generate prefixed rule that already exists
 
-* `callback(error, css)` - a function will be called when CSS is generated:
+* `callback(error, css)` - this function will be called when CSS is generated:
 
   * `error` - `null` if there was no error when generating CSS, otherwise an error object
 
@@ -1136,7 +1137,7 @@ Rule sets inside `@void` are removed from the CSS output, unless they are extend
 
 `.roo` will be added if the file's name doesn't end with an extension.
 
-INFO: Use relative paths (i.e., paths start with `./` or `../`) to import files, future version will use paths like `'tabs'` to import libararies.
+INFO: Use relative paths (i.e., paths start with `./` or `../`) to import files, future version will use paths like `'tabs'` to import libraries.
 
 <hr>
 
@@ -1152,7 +1153,7 @@ Files are not imported if their paths are sepecified using `url()`, starting wit
 @import './tabs' screen;
 ```
 
-INFO: variables will be allowed in paths in a future version.
+INFO: Variables will be allowed in paths in a future version.
 
 <hr>
 
@@ -1250,8 +1251,6 @@ $support-old-ie = false;
 Variable scope in the imported file is explained in the next section.
 
 ### Scope
-
-<hr>
 
 Variables have to be defined before they can be used. Once defined, they are only available within the boundary of their respective rule block, which defines their scope:
 

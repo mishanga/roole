@@ -53,41 +53,33 @@
 
 <div id="main">
 {{#main}}
+	{{#element}}{{&html}}{{/element}}
 	{{#heading}}
-	<h{{level}}>{{#id}}<a id="{{value}}" class="bookmark"></a>{{/id}}{{&content}}</h{{level}}>
+	<h{{level}}><a id="{{id}}" class="bookmark"></a>{{content}}</h{{level}}>
 	{{/heading}}
 	{{#snippet}}
 	<figure class="snippet">
 			{{#input}}
-			<div class="input cm-s-tomorrow{{#lang}} lang-{{value}}{{/lang}}">
-				{{#imports}}
+			<div class="input cm-s-tomorrow lang-{{lang}}">
+				{{#import}}
 				<div class="file">
 					<div class="name">{{name}}</div>
-					<pre><code>{{&content}}</code></pre>
+					<pre><code>{{&html}}</code></pre>
 				</div>
-				{{/imports}}
-				<pre><code>{{&content}}</code></pre>
+				{{/import}}
+				<pre><code>{{&html}}</code></pre>
 			</div>
 			{{/input}}
 			{{#output}}
-			<div class="output cm-s-tomorrow{{#lang}} lang-{{value}}{{/lang}}">
-				<pre><samp>{{&content}}</samp></pre>
+			<div class="output cm-s-tomorrow lang-{{lang}}">
+				<pre><samp>{{&html}}</samp></pre>
 			</div>
 			{{/output}}
-			{{#content}}
-			<pre class="cm-s-tomorrow{{#lang}} lang-{{value}}{{/lang}}"><code>{{&value}}</code></pre>
-			{{/content}}
+			{{#code}}
+			<pre class="cm-s-tomorrow lang-{{lang}}"><code>{{&html}}</code></pre>
+			{{/code}}
 	</figure>
 	{{/snippet}}
-	{{#element}}
-	<{{tag}}>{{&content}}</{{tag}}>
-	{{/element}}
-	{{#info}}
-	<p class="info">{{&content}}</p>
-	{{/info}}
-	{{#warning}}
-	<p class="warning">{{&content}}</p>
-	{{/warning}}
 {{/main}}
 </div>
 

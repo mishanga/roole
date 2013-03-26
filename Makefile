@@ -44,16 +44,19 @@ roole/dist/roole.min.js:
 	cd roole && $(MAKE) min
 
 index.html: \
-	node_modules/.bin/marked \
+	build/md2json \
 	index.md \
-	build/parse-index \
+	roole/CHANGELOG.md \
 	roole/build/mustache \
 	index.mustache \
+	node_modules/marked \
+	node_modules/jsdom \
 	roole/package.json \
 	build/css-mode.js \
 	build/roole-mode.js
 
-	$< --breaks --lang-prefix '' $(word 2,$^) | $(word 3,$^) | $(word 4,$^) $(word 5,$^) >$@
+	build/md2json index.md roole/CHANGELOG.md | \
+		roole/build/mustache index.mustache >$@
 
 test: test/test.js test/index.html test/mocha.css test/mocha.js
 
