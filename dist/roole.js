@@ -104,13 +104,13 @@ _.normalizePath = function (path) {
  */
 /* exported Err */
 
-var Err = function(message, node, fileName) {
+var Err = function(message, node, filename) {
 	var error = new Error(message);
 
 	error.line = node.loc.line;
 	error.column = node.loc.column;
 	error.offset = node.loc.offset;
-	error.fileName = fileName;
+	error.filename = filename;
 
 	return error;
 };
@@ -8325,11 +8325,11 @@ var generatedParser = (function() {
 var parser = {};
 
 parser.parse = function(input, options) {
-	var fileName = options.fileName;
+	var filename = options.filename;
 
 	try {
 		var ast = generatedParser.parse(input, options);
-		if (ast.type === 'root') { ast.fileName = fileName; }
+		if (ast.type === 'root') { ast.filename = filename; }
 
 		return ast;
 	} catch(error) {
@@ -8348,7 +8348,7 @@ parser.parse = function(input, options) {
 				}
 			}
 			error.message = "unexpected " + found;
-			error.fileName = fileName;
+			error.filename = filename;
 
 			if (options.loc) {
 				error.line = options.loc.line;
@@ -8496,12 +8496,12 @@ Importer.prototype.visitRuleList = Importer.prototype.visitNode;
 Importer.prototype.visitNode = _.noop;
 
 Importer.prototype.visitRoot = function(rootNode) {
-	var fileName = this.fileName;
-	this.fileName = rootNode.fileName;
+	var filename = this.filename;
+	this.filename = rootNode.filename;
 
 	this.visit(rootNode.children);
 
-	this.fileName = fileName;
+	this.filename = filename;
 };
 
 Importer.prototype.visitImport = function(importNode) {
@@ -8515,25 +8515,25 @@ Importer.prototype.visitImport = function(importNode) {
 		return;
 	}
 
-	var fileName = urlNode.children[0];
-	if (/^\w+:\/\//.test(fileName)) {
+	var filename = urlNode.children[0];
+	if (/^\w+:\/\//.test(filename)) {
 		return;
 	}
 
-	if (!/\.[a-z]+$/i.test(fileName)) {
-		fileName += '.roo';
+	if (!/\.[a-z]+$/i.test(filename)) {
+		filename += '.roo';
 	}
-	fileName = _.joinPaths(_.dirname(this.fileName), fileName);
+	filename = _.joinPaths(_.dirname(this.filename), filename);
 
-	if (this.imported[fileName]) {
+	if (this.imported[filename]) {
 		return null;
 	}
 
-	this.imported[fileName] = true;
+	this.imported[filename] = true;
 
-	var content = this.imports[fileName];
+	var content = this.imports[filename];
 	if (typeof content === 'string') {
-		var ast = parser.parse(content, {fileName: fileName});
+		var ast = parser.parse(content, {filename: filename});
 		return this.visit(ast);
 	}
 
@@ -8541,7 +8541,7 @@ Importer.prototype.visitImport = function(importNode) {
 
 	var callback = this.callback;
 
-	loader.load(fileName, function(error, content) {
+	loader.load(filename, function(error, content) {
 		if (this.hasError) {
 			return;
 		}
@@ -8553,8 +8553,8 @@ Importer.prototype.visitImport = function(importNode) {
 
 		var rootNode;
 		try {
-			this.imports[fileName] = content;
-			rootNode = parser.parse(content, {fileName: fileName});
+			this.imports[filename] = content;
+			rootNode = parser.parse(content, {filename: filename});
 			this.visit(rootNode);
 		} catch (error) {
 			this.hasError = true;
@@ -8626,12 +8626,12 @@ Evaluator.prototype.evaluate = function(ast) {
 
 
 Evaluator.prototype.visitRoot = function(rootNode) {
-	var fileName = this.fileName;
-	this.fileName = rootNode.fileName;
+	var filename = this.filename;
+	this.filename = rootNode.filename;
 
 	this.visit(rootNode.children);
 
-	this.fileName = fileName;
+	this.filename = filename;
 };
 
 Evaluator.prototype.visitRuleset = function(rulesetNode) {
@@ -8683,7 +8683,7 @@ Evaluator.prototype.visitSelectorInterpolation = function(selectorInterpolationN
 
 	var value = valueNode.children[0].trim();
 	var options = {
-		fileName: this.fileName,
+		filename: this.filename,
 		startRule: 'selector',
 		loc: valueNode.loc
 	};
@@ -8704,7 +8704,7 @@ Evaluator.prototype.visitClassSelector = function(classSelectorNode) {
 
 	var valueNode = classSelectorNode.children[0];
 	if (valueNode.type !== 'identifier') {
-		throw Err("'" + valueNode.type + "' can not be used in class selector", valueNode, this.fileName);
+		throw Err("'" + valueNode.type + "' can not be used in class selector", valueNode, this.filename);
 	}
 	var value = valueNode.children[0];
 
@@ -8749,7 +8749,7 @@ Evaluator.prototype.visitCall = function(callNode) {
 	}
 
 	if (functionNode.type !== 'function') {
-		throw Err("'" + functionNode.type + "' is not a 'function'", functionNode, this.fileName);
+		throw Err("'" + functionNode.type + "' is not a 'function'", functionNode, this.filename);
 	}
 
 	this.scope.add();
@@ -8825,7 +8825,7 @@ Evaluator.prototype.visitFunction = function(functionNode) {
 
 Evaluator.prototype.visitReturn = function(returnNode) {
 	if (!this.insideFunction) {
-		throw Err('@return is only allowed inside @function', returnNode, this.fileName);
+		throw Err('@return is only allowed inside @function', returnNode, this.filename);
 	}
 
 	if (!this.insideMixin) {
@@ -8840,7 +8840,7 @@ Evaluator.prototype.visitVariable = function(variableNode) {
 	var valueNode = this.scope.resolve(variableName);
 
 	if (!valueNode) {
-		throw Err('$' + variableName + ' is undefined', variableNode, this.fileName);
+		throw Err('$' + variableName + ' is undefined', variableNode, this.filename);
 	}
 
 	valueNode = Node.clone(valueNode, false);
@@ -8855,7 +8855,7 @@ Evaluator.prototype.visitIdentifier = function(identifierNode) {
 	var value = childNodes.map(function(childNode) {
 		var value = Node.toString(childNode);
 		if (value === null) {
-			throw Err("'" + childNode.type + "' is not allowed to be interpolated in 'identifier'", childNode, this.fileName);
+			throw Err("'" + childNode.type + "' is not allowed to be interpolated in 'identifier'", childNode, this.filename);
 		}
 
 		return value;
@@ -8873,7 +8873,7 @@ Evaluator.prototype.visitString = function(stringNode) {
 	var value = childNodes.map(function(childNode) {
 		var value = Node.toString(childNode);
 		if (value === null) {
-			throw Err("'" + childNode.type + "' is not allowed to be interpolated in 'string'", childNode, this.fileName);
+			throw Err("'" + childNode.type + "' is not allowed to be interpolated in 'string'", childNode, this.filename);
 		}
 
 		if (childNode.type === 'string') {
@@ -8901,7 +8901,7 @@ Evaluator.prototype.visitRange = function(rangeNode) {
 	}
 
 	if (invalidNode) {
-		throw Err("only numberic values are allowed in 'range'", invalidNode, this.fileName);
+		throw Err("only numberic values are allowed in 'range'", invalidNode, this.filename);
 	}
 };
 
@@ -9092,7 +9092,7 @@ Evaluator.prototype.visitArithmetic = function(arithmeticNode) {
 	case 'dimension / percentage':
 		var divisor = rightNode.children[0];
 		if (!divisor) {
-			throw Err('divide by zero', rightNode, this.fileName);
+			throw Err('divide by zero', rightNode, this.filename);
 		}
 
 		var leftClone = Node.clone(leftNode);
@@ -9103,7 +9103,7 @@ Evaluator.prototype.visitArithmetic = function(arithmeticNode) {
 	case 'number / percentage':
 		var divisor = rightNode.children[0];
 		if (!divisor) {
-			throw Err('divide by zero', rightNode, this.fileName);
+			throw Err('divide by zero', rightNode, this.filename);
 		}
 
 		var rightClone = Node.clone(rightNode);
@@ -9124,7 +9124,7 @@ Evaluator.prototype.visitArithmetic = function(arithmeticNode) {
 		return leftClone;
 	}
 
-	throw Err("unsupported binary operation: '" + leftNode.type + "' " + operator + " '" + rightNode.type + "'", leftNode, this.fileName);
+	throw Err("unsupported binary operation: '" + leftNode.type + "' " + operator + " '" + rightNode.type + "'", leftNode, this.filename);
 };
 
 Evaluator.prototype.visitUnary = function(unaryNode) {
@@ -9151,7 +9151,7 @@ Evaluator.prototype.visitUnary = function(unaryNode) {
 		return operandClone;
 	}
 
-	throw Err("unsupported unary operation: " + operator + "'" + operandNode.type + "'", unaryNode, this.fileName);
+	throw Err("unsupported unary operation: " + operator + "'" + operandNode.type + "'", unaryNode, this.filename);
 };
 
 Evaluator.prototype.visitMedia = function(mediaNode) {
@@ -9186,7 +9186,7 @@ Evaluator.prototype.visitMediaInterpolation = function(mediaInterpolationNode) {
 
 	var value = valueNode.children[0].trim();
 	var options = {
-		fileName: this.fileName,
+		filename: this.filename,
 		startRule: 'mediaQuery',
 		loc: valueNode.loc
 	};
@@ -9249,11 +9249,11 @@ Evaluator.prototype.visitFor = function(forNode) {
 	if (stepNode) {
 		stepNumber = Node.toNumber(stepNode);
 		if (stepNumber === null) {
-			throw Err("step number must be a numberic value", stepNode, this.fileName);
+			throw Err("step number must be a numberic value", stepNode, this.filename);
 		}
 
 		if (!stepNumber) {
-			throw Err("step number is not allowed to be zero", stepNode, this.fileName);
+			throw Err("step number is not allowed to be zero", stepNode, this.filename);
 		}
 	}
 
@@ -9361,13 +9361,13 @@ Evaluator.prototype.visitModule = function(moduleNode) {
 	var nameNode = this.visit(moduleNode.children[0]);
 	var name = Node.toString(nameNode);
 	if (name === null) {
-		throw Err("'" + nameNode.type + "' can not be used as a module name" , nameNode, this.fileName);
+		throw Err("'" + nameNode.type + "' can not be used as a module name" , nameNode, this.filename);
 	}
 
 	var separatorNode = this.visit(moduleNode.children[1]);
 	var separator = separatorNode ? Node.toString(separatorNode) : '-';
 	if (separator === null) {
-		throw Err("'" + separatorNode.type + "' can not be used as a module name separator" , separatorNode, this.fileName);
+		throw Err("'" + separatorNode.type + "' can not be used as a module name separator" , separatorNode, this.filename);
 	}
 
 	this.parentModuleName = parentModuleName + name + separator;
@@ -9414,15 +9414,15 @@ Extender.prototype.visitNode = _.noop;
 
 
 Extender.prototype.visitRoot = function(rootNode) {
-	var fileName = this.fileName;
-	this.fileName = rootNode.fileName;
+	var filename = this.filename;
+	this.filename = rootNode.filename;
 
 	var extendBoundaryNode = this.extendBoundaryNode;
 	this.extendBoundaryNode = rootNode;
 
 	this.visit(rootNode.children);
 
-	this.fileName = fileName;
+	this.filename = filename;
 	this.extendBoundaryNode = extendBoundaryNode;
 };
 
@@ -9473,7 +9473,7 @@ Extender.prototype.visitSelector = function(selectorNode) {
 	var startWithCombinator = firstNode.type === 'combinator';
 	if (startWithCombinator) {
 		if (!this.parentSelector) {
-			throw Err("selector starting with a combinator is not allowed at the top level", firstNode, this.fileName);
+			throw Err("selector starting with a combinator is not allowed at the top level", firstNode, this.filename);
 		}
 
 		selectorNode.children = this.parentSelector.children.concat(selectorNode.children);
@@ -9485,7 +9485,7 @@ Extender.prototype.visitSelector = function(selectorNode) {
 
 Extender.prototype.visitAmpersandSelector = function(ampersandSelectorNode) {
 	if (!this.parentSelector) {
-		throw Err("& selector is not allowed at the top level", ampersandSelectorNode, this.fileName);
+		throw Err("& selector is not allowed at the top level", ampersandSelectorNode, this.filename);
 	}
 
 	this.hasAmpersandSelector = true;
@@ -9499,7 +9499,7 @@ Extender.prototype.visitAmpersandSelector = function(ampersandSelectorNode) {
 		case 'typeSelector':
 			break;
 		default:
-			throw Err("parent selector '" + lastNode.type + "' is not allowed to be appended", ampersandSelectorNode, this.fileName);
+			throw Err("parent selector '" + lastNode.type + "' is not allowed to be appended", ampersandSelectorNode, this.filename);
 		}
 
 		var lastClone = Node.clone(lastNode);
@@ -9808,13 +9808,13 @@ Normalizer.prototype.visitRoot = function(rootNode) {
 	var parentRoot = this.parentRoot;
 	this.parentRoot = rootNode;
 
-	var fileName = this.fileName;
-	this.fileName = rootNode.fileName;
+	var filename = this.filename;
+	this.filename = rootNode.filename;
 
 	var childNodes = this.visit(rootNode.children);
 
 	this.parentRoot = parentRoot;
-	this.fileName = fileName;
+	this.filename = filename;
 
 	if (parentRoot && !childNodes.length) {
 		return null;
@@ -9914,7 +9914,7 @@ Normalizer.prototype.visitMedia = function(mediaNode) {
 
 	if (propertyNodes.length) {
 		if (!this.parentSelectorList) {
-			throw Err("@media containing properties is not allowed at the top level", mediaNode, this.fileName);
+			throw Err("@media containing properties is not allowed at the top level", mediaNode, this.filename);
 		}
 
 		var firstPropertyNode = propertyNodes[0];
@@ -10552,7 +10552,7 @@ formatter.format = function(error, input) {
 
 	var lineNumber = error.line;
 	var columnNumber = error.column;
-	var fileName = error.fileName;
+	var filename = error.filename;
 	var lines = input.split(/\r\n|[\r\n]/);
 	var siblingLineSize = 4;
 	var startLineNumber = Math.max(lineNumber - siblingLineSize, 1);
@@ -10590,7 +10590,7 @@ formatter.format = function(error, input) {
 		}, '');
 
 	return message +
-	       '\n\n  ' + '(' + (fileName ? fileName + ' ' : '') + error.line + ':' + error.column + ')' +
+	       '\n\n  ' + '(' + (filename ? filename + ' ' : '') + error.line + ':' + error.column + ')' +
 	       '\n' + context;
 };
 
@@ -10610,17 +10610,17 @@ roole.compile = function(input, options, callback) {
 		options = {};
 	}
 
-	if (options.fileName == null) { options.fileName = ''; }
+	if (options.filename == null) { options.filename = ''; }
 	if (options.imports == null) { options.imports = {}; }
 	if (options.prettyError == null) { options.prettyError = defaults.prettyError; }
 
-	options.imports[options.fileName] = input;
+	options.imports[options.filename] = input;
 
 	if (options.prettyError) {
 		var _callback = callback;
 		callback = function(error, ast) {
 			if (error && error.line) {
-				input = options.imports[error.fileName];
+				input = options.imports[error.filename];
 				error.message = formatter.format(error, input);
 			}
 
@@ -10690,7 +10690,7 @@ Array.prototype.forEach.call(elements, function(element) {
 				throw error;
 			}
 
-			options.fileName = url;
+			options.filename = url;
 			roole.compile(content, options, function(error, css) {
 				if (error) {
 					displayError(error.message);

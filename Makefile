@@ -21,26 +21,26 @@ DOC_JS_FILES = \
 	script/toc.js \
 	script/editor.js
 
-doc: dist/roole.js dist/roole.min.js script/script.js style/style.css index.html test
+doc: release script/script.js style/style.css index.html test
 
-dist/roole.js: roole/dist/roole.js | dist
-	cp -f $< $@
+release: dist/roole.js dist/roole.min.js dist/roole.min.js.map
 
-dist/roole.min.js: roole/dist/roole.min.js | dist
+dist/%: roole/dist/%
 	cp -f $< $@
 
 style/style.css: roole/bin/roole node_modules/.bin/cleancss $(DOC_CSS_FILES) $(DOC_ROO_FILES)
 	cat $(DOC_CSS_FILES) >$@
 	$< -p $(DOC_ROO_FILES) >>$@
-	$(word 2,$^) --s0 --remove-empty --output $@ $@
+	node_modules/.bin/cleancss --s0 --remove-empty --output $@ $@
 
-script/script.js: $(DOC_JS_FILES) roole/node_modules/.bin/uglifyjs
-	roole/node_modules/.bin/uglifyjs $(DOC_JS_FILES) -cmo $@
+script/script.js: node_modules/.bin/uglifyjs $(DOC_JS_FILES)
+	$< $(DOC_JS_FILES) -cmo $@
 
 roole/dist/roole.js:
 	cd roole && $(MAKE) roole
 
-roole/dist/roole.min.js:
+roole/dist/roole.min.js \
+roole/dist/roole.min.js.map:
 	cd roole && $(MAKE) min
 
 index.html: \
@@ -58,19 +58,22 @@ index.html: \
 	build/md2json index.md roole/CHANGELOG.md | \
 		roole/build/mustache index.mustache >$@
 
-test: test/test.js test/index.html test/mocha.css test/mocha.js
+test: test/test.js test/test.min.js test/test.min.js.map test/index.html test/vendor/mocha.css test/vendor/mocha.js
 
 test/test.js: roole/test/test.js
 	cp -f $< $@
 
-roole/test/test.js:
-	cd roole && make browser-test
-
-test/index.html: roole/test/index.html
-	sed -e 's%../node_modules/mocha/%%' $< >$@
-
-test/mocha.%: roole/node_modules/mocha/mocha.%
+test/%: roole/test/%
 	cp -f $< $@
+
+test/vendor/mocha.js: node_modules/.bin/uglifyjs roole/test/vendor/mocha.js
+	$< roole/test/vendor/mocha.js -cmo $@
+
+test/vendor/mocha.css: node_modules/.bin/cleancss roole/test/vendor/mocha.css
+	$< --s0 -eo $@ roole/test/vendor/mocha.css
+
+roole/test/%:
+	cd roole && make browser-test
 
 merge:
 	git merge -Xsubtree=roole -m "Merge branch 'master' into gh-pages" master
@@ -78,14 +81,8 @@ merge:
 node_modules/%:
 	npm install
 
-roole/node_modules/%:
-	cd roole && npm install
-
 components/%: node_modules/.bin/bower
 	$< install
-
-dist:
-	mkdir $@
 
 clean:
 	cd roole && $(MAKE) clean
