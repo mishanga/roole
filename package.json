@@ -3,10 +3,11 @@
   "name": "roole-doc",
   "version": "0.0.0",
   "dependencies": {
-    "bower": "~0.6.8",
-    "jsdom": "~0.3.4",
-    "marked": "~0.2.7",
-    "mustache": "~0.7.2",
-    "clean-css": "~0.10.1"
+    "bower": "0.6.x",
+    "jsdom": "0.3.x",
+    "marked": "0.2.x",
+    "mustache": "0.7.x",
+    "clean-css": "0.10.x",
+    "uglify-js": "2.x"
   }
 }
