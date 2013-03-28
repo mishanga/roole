@@ -47,7 +47,7 @@
 		</ul>
 	</nav>
 
-	<p><a id="download-button" href="dist/roole.min.js">Download Roole <span id="version">0.4.0</span></a></p>
+	<p><a id="download-button" href="dist/roole.min.js">Download Roole <span id="version">0.4.1</span></a></p>
 	<p><a id="fork-button" href="https://github.com/curvedmark/roole">or View Source on GitHub</a></p>
 </header>
 
@@ -1178,18 +1178,22 @@
 	<p>You can also follow me <a href="https://twitter.com/curvedmark">@curvedmark</a> on twitter.</p>
 	
 	<h2><a id="changelog" class="bookmark"></a>Change Log</h2>
+	<h3 class="changelog-version">0.4.1<time class="changelog-time">2013-03-28</time></h3>
+	<ul>
+<li>Fix function called within mixin retuning incorrect value</li>
+</ul>
 	<h3 class="changelog-version">0.4.0<time class="changelog-time">2013-03-26</time></h3>
 	<ul>
-<li>Rename @mixin to @function</li>
-<li>Allow @function call to return value</li>
-<li>Support $arguments inside @function</li>
+<li>Rename <code>@mixin</code> to <code>@function</code></li>
+<li>Allow <code>@function</code> to return value with <code>@return</code></li>
+<li>Support <code>$arguments</code> variable inside <code>@function</code></li>
 <li>Add rest parameter syntax</li>
-<li>Remove @extend-all syntax</li>
-<li>Add @module syntax</li>
-<li>Add assignment operators</li>
+<li>Remove <code>@extend-all</code> syntax</li>
+<li>Add <code>@module</code> syntax</li>
+<li>Add assignment operators (e.g, <code>+=</code>, <code>*=</code>, etc)</li>
 <li>The prefix option now is a space-separated string</li>
-<li>Support @page syntax</li>
-<li>Allow identifier to directly follow &amp; selector</li>
+<li>Support <code>@page</code> syntax</li>
+<li>Allow identifier to directly follow &amp; selector (e.g., <code>$-foo {}</code>)</li>
 </ul>
 	<h3 class="changelog-version">0.3.1<time class="changelog-time">2013-03-08</time></h3>
 	<ul>
@@ -1199,9 +1203,9 @@
 	<ul>
 <li>Change syntax to be a superset of CSS</li>
 <li>Make variables case-sensitive</li>
-<li>Add @extend-all syntax</li>
-<li>Support @font-face syntax</li>
-<li>Support @charset syntax</li>
+<li>Add <code>@extend-all</code> syntax</li>
+<li>Support <code>@font-face</code> syntax</li>
+<li>Support <code>@charset</code> syntax</li>
 </ul>
 	<h3 class="changelog-version">0.2.1<time class="changelog-time">2013-02-19</time></h3>
 	<ul>

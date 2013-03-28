@@ -1606,6 +1606,26 @@ test('not modify arguments by direct assignment', function() {
 	]);
 });
 
+test('function called within a mixin', function() {
+	assert.compileTo([
+		'$foo = @function {',
+		'	width: $bar();',
+		'};',
+		'',
+		'$bar = @function {',
+		'	@return 80px;',
+		'};',
+		'',
+		'body {',
+		'	@mixin $foo();',
+		'}',
+	], [
+		'body {',
+		'	width: 80px;',
+		'}',
+	]);
+});
+
 suite('list');
 
 test('space-separated list', function() {
@@ -4806,43 +4826,6 @@ test('loop null with index', function() {
 	], [
 		'body {',
 		'	-foo: null null;',
-		'}',
-	]);
-});
-
-suite('mixin');
-
-test('mixin rules', function() {
-	assert.compileTo([
-		'$property = @function {',
-		'	width: auto;',
-		'};',
-		'',
-		'body {',
-		'	@mixin $property();',
-		'}',
-	], [
-		'body {',
-		'	width: auto;',
-		'}',
-	]);
-});
-
-test('ignore @return', function() {
-	assert.compileTo([
-		'$rules = @function {',
-		'	width: auto;',
-		'	@return 960px;',
-		'	height: auto;',
-		'};',
-		'',
-		'body {',
-		'	@mixin $rules();',
-		'}',
-	], [
-		'body {',
-		'	width: auto;',
-		'	height: auto;',
 		'}',
 	]);
 });

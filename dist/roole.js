@@ -1,5 +1,5 @@
 /*
- * Roole - A language that compiles to CSS v0.4.0
+ * Roole - A language that compiles to CSS v0.4.1
  * http://roole.org
  *
  * Copyright 2012 Glen Huang
@@ -839,8 +839,7 @@ var generatedParser = (function() {
         peg$c224 = "@mixin",
         peg$c225 = "\"@mixin\"",
         peg$c226 = function(name, argumentList) {
-        		var callNode = N('call', [name, argumentList]);
-        		return N('mixin', [callNode]);
+        		return N('call', [name, argumentList], {mixin: true});
         	},
         peg$c227 = "@return",
         peg$c228 = "\"@return\"",
@@ -8783,29 +8782,31 @@ Evaluator.prototype.visitCall = function(callNode) {
 
 	var ruleListClone = Node.clone(functionNode.children[1]);
 
-	var insideFunction = this.insideFunction;
-	this.insideFunction = true;
-
-	if (this.insideMixin) {
-		return this.visit(ruleListClone).children;
-	}
+	var context = this.context;
 
 	var returnedNode;
-	try {
-		this.visit(ruleListClone);
-	} catch (error) {
-		if (error instanceof Error) {
-			throw error;
+	if (callNode.mixin) {
+		this.context = 'mixin';
+		returnedNode = this.visit(ruleListClone.children);
+	} else {
+		this.context = 'call';
+
+		try {
+			this.visit(ruleListClone);
+		} catch (error) {
+			if (error instanceof Error) {
+				throw error;
+			}
+
+			returnedNode = error;
 		}
 
-		returnedNode = error;
+		if (!returnedNode) {
+			returnedNode = Node('null', {loc: callNode.loc});
+		}
 	}
 
-	if (!returnedNode) {
-		returnedNode = Node('null', {loc: callNode.loc});
-	}
-
-	this.insideFunction = insideFunction;
+	this.context = context;
 
 	this.scope.remove();
 
@@ -8824,11 +8825,11 @@ Evaluator.prototype.visitFunction = function(functionNode) {
 };
 
 Evaluator.prototype.visitReturn = function(returnNode) {
-	if (!this.insideFunction) {
+	if (!this.context) {
 		throw Err('@return is only allowed inside @function', returnNode, this.filename);
 	}
 
-	if (!this.insideMixin) {
+	if (this.context === 'call') {
 		throw this.visit(returnNode.children[0]);
 	}
 
@@ -9312,17 +9313,6 @@ Evaluator.prototype.visitFor = function(forNode) {
 		this.visit(ruleListClone.children);
 		ruleNodes = ruleNodes.concat(ruleListClone.children);
 	}
-
-	return ruleNodes;
-};
-
-Evaluator.prototype.visitMixin = function(mixinNode) {
-	var insideMixin = this.insideMixin;
-	this.insideMixin = true;
-
-	var ruleNodes = this.visit(mixinNode.children[0]);
-
-	this.insideMixin = insideMixin;
 
 	return ruleNodes;
 };
@@ -10726,7 +10716,7 @@ function displayError(message) {
 	document.body.appendChild(errorElement);
 }
 
-roole.version = '0.4.0'
+roole.version = '0.4.1'
 
 return roole
 
