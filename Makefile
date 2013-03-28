@@ -76,7 +76,7 @@ roole/test/%:
 	cd roole && make browser-test
 
 merge:
-	git merge -Xsubtree=roole -m "Merge branch 'master' into gh-pages" master
+	git merge -Xsubtree=roole --no-edit master
 
 node_modules/%:
 	npm install
