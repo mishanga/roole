@@ -1,3 +1,8 @@
+## WIP
+
+- Support unit syntax (e.g., `()%` and `()em`)
+- Change default value of precision option to 5
+
 ## 0.5.1 - 2013-09-11
 
 - Fix `$push()` and `$unshift()` to empty list
